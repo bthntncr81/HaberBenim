@@ -1,0 +1,114 @@
+<div class="public-home">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="brand">
+        <span class="brand-icon">📡</span>
+        <h1 class="brand-name">Haber Platform</h1>
+      </div>
+      <p class="tagline">Your curated news aggregator</p>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Search Section -->
+    <section class="search-section">
+      <div class="search-box">
+        <input 
+          type="text" 
+          [(ngModel)]="searchQuery"
+          placeholder="Search news..."
+          (keyup.enter)="onSearch()"
+        >
+        <button class="btn-search" (click)="onSearch()">🔍 Search</button>
+        @if (searchQuery) {
+          <button class="btn-clear" (click)="onClearSearch()">✕</button>
+        }
+      </div>
+      @if (searchQuery) {
+        <p class="search-info">Showing results for: "{{ searchQuery }}"</p>
+      }
+    </section>
+
+    <!-- Results Info -->
+    <div class="results-info">
+      <span>{{ total() }} articles found</span>
+      @if (totalPages > 1) {
+        <span class="page-info">Page {{ page() }} of {{ totalPages }}</span>
+      }
+    </div>
+
+    <!-- Loading State -->
+    @if (isLoading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading news...</p>
+      </div>
+    }
+
+    <!-- Error State -->
+    @if (error()) {
+      <div class="error-state">
+        <span class="error-icon">⚠️</span>
+        <p>{{ error() }}</p>
+        <button class="btn-retry" (click)="loadArticles()">Try Again</button>
+      </div>
+    }
+
+    <!-- News List -->
+    @if (!isLoading() && !error()) {
+      <section class="news-section">
+        <div class="news-list">
+          @for (article of articles(); track article.id) {
+            <article class="news-item" (click)="openArticle(article)">
+              <div class="news-meta">
+                @if (article.sourceName) {
+                  <span class="news-source">{{ article.sourceName }}</span>
+                }
+                <span class="news-date">{{ formatDate(article.publishedAtUtc) }}</span>
+              </div>
+              <h3 class="news-title">{{ article.webTitle }}</h3>
+              <p class="news-excerpt">{{ article.excerpt }}</p>
+              <span class="read-more">Read more →</span>
+            </article>
+          } @empty {
+            <div class="empty-state">
+              <span class="empty-icon">📭</span>
+              <h3>No articles found</h3>
+              <p>Try adjusting your search or check back later for new content.</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Pagination -->
+      @if (totalPages > 1) {
+        <div class="pagination">
+          <button 
+            class="btn-page" 
+            [disabled]="!hasPrev"
+            (click)="onPrev()"
+          >
+            ← Previous
+          </button>
+          <span class="page-current">{{ page() }} / {{ totalPages }}</span>
+          <button 
+            class="btn-page" 
+            [disabled]="!hasNext"
+            (click)="onNext()"
+          >
+            Next →
+          </button>
+        </div>
+      }
+    }
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>© 2024 Haber Platform. All rights reserved.</p>
+    <p class="footer-note">Powered by Haber Platform API</p>
+  </footer>
+</div>
+

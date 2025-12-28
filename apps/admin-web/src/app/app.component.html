@@ -1,0 +1,61 @@
+@if (isLoginPage()) {
+  <!-- Login page - no layout -->
+  <router-outlet></router-outlet>
+} @else {
+  <div class="app-layout">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="logo">
+        <span class="logo-icon">📡</span>
+        <span class="logo-text">Haber Platform</span>
+      </div>
+      <nav class="topbar-nav">
+        @if (isLoggedIn()) {
+          <div class="user-menu">
+            <div class="user-avatar">{{ getUserInitial() }}</div>
+            <span class="user-name">{{ userName() }}</span>
+            <button class="btn-logout" (click)="logout()">
+              <span class="logout-icon">🚪</span>
+              Logout
+            </button>
+          </div>
+        } @else {
+          <a routerLink="/login" class="login-link">Login</a>
+        }
+      </nav>
+    </header>
+
+    <div class="main-container">
+      <!-- Sidebar -->
+      @if (isLoggedIn()) {
+        <aside class="sidebar">
+          <nav class="sidebar-nav">
+            @for (item of navItems(); track item.path) {
+              <a 
+                [routerLink]="item.path" 
+                routerLinkActive="active"
+                class="nav-item"
+              >
+                <span class="nav-icon">{{ item.icon }}</span>
+                <span class="nav-label">{{ item.label }}</span>
+              </a>
+            }
+          </nav>
+          
+          <div class="sidebar-footer">
+            <div class="role-badges">
+              @for (role of userRoles(); track role) {
+                <span class="role-badge" [class]="role.toLowerCase()">{{ role }}</span>
+              }
+            </div>
+          </div>
+        </aside>
+      }
+
+      <!-- Main Content -->
+      <main class="content" [class.full-width]="!isLoggedIn()">
+        <router-outlet></router-outlet>
+      </main>
+    </div>
+  </div>
+}

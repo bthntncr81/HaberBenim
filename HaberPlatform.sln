@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "apps", "apps", "{DD5E4A51-86FE-463B-9491-3ADA77D757CC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "api", "api", "{B2989215-0F05-4B85-A86E-CB6D7A08A0C1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HaberPlatform.Api", "apps\api\HaberPlatform.Api\HaberPlatform.Api.csproj", "{1FFC72D5-53F3-4E0C-9228-D37B50B56CEC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1FFC72D5-53F3-4E0C-9228-D37B50B56CEC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FFC72D5-53F3-4E0C-9228-D37B50B56CEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FFC72D5-53F3-4E0C-9228-D37B50B56CEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FFC72D5-53F3-4E0C-9228-D37B50B56CEC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B2989215-0F05-4B85-A86E-CB6D7A08A0C1} = {DD5E4A51-86FE-463B-9491-3ADA77D757CC}
+		{1FFC72D5-53F3-4E0C-9228-D37B50B56CEC} = {B2989215-0F05-4B85-A86E-CB6D7A08A0C1}
+	EndGlobalSection
+EndGlobal

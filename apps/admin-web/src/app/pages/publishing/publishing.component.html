@@ -1,0 +1,234 @@
+<div class="page">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1>🚀 Publishing Jobs</h1>
+      <p>Monitor and manage content publishing queue</p>
+    </div>
+    @if (isAdmin) {
+      <button 
+        class="btn-run-due" 
+        (click)="runDueJobs()"
+        [disabled]="isRunningDue()"
+      >
+        @if (isRunningDue()) {
+          <span class="spinner-sm"></span>
+        }
+        ⚡ Run Due Jobs
+      </button>
+    }
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-card">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label>Status</label>
+        <select [(ngModel)]="statusFilter">
+          @for (opt of statusOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>From Date</label>
+        <input type="datetime-local" [(ngModel)]="fromUtc">
+      </div>
+      
+      <div class="filter-group">
+        <label>To Date</label>
+        <input type="datetime-local" [(ngModel)]="toUtc">
+      </div>
+      
+      <div class="filter-actions">
+        <button class="btn-search" (click)="onSearch()">🔍 Search</button>
+        <button class="btn-clear" (click)="onClearFilters()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Info -->
+  <div class="results-info">
+    <span>{{ total() }} jobs found</span>
+    <span class="page-info">Page {{ page() }} of {{ totalPages || 1 }}</span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-container">
+    @if (isLoading()) {
+      <div class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    }
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="col-date">Scheduled</th>
+          <th class="col-status">Status</th>
+          <th class="col-attempts">Attempts</th>
+          <th class="col-title">Content</th>
+          <th class="col-error">Last Error</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (job of jobs(); track job.id) {
+          <tr>
+            <td class="col-date">{{ formatDate(job.scheduledAtUtc) }}</td>
+            <td class="col-status">
+              <span class="status-badge" [class]="getStatusClass(job.status)">
+                {{ job.status }}
+              </span>
+            </td>
+            <td class="col-attempts">
+              <span class="attempt-count">{{ job.attemptCount }}</span>
+              @if (job.nextRetryAtUtc) {
+                <span class="retry-info" title="Next retry at {{ formatDate(job.nextRetryAtUtc) }}">
+                  ⏱️
+                </span>
+              }
+            </td>
+            <td class="col-title">
+              <span class="title-text" [title]="job.contentTitle || job.contentItemId">
+                {{ truncate(job.contentTitle, 40) || truncate(job.contentItemId, 20) }}
+              </span>
+            </td>
+            <td class="col-error">
+              @if (job.lastError) {
+                <span class="error-text" [title]="job.lastError">
+                  {{ truncate(job.lastError, 30) }}
+                </span>
+              } @else {
+                <span class="muted">-</span>
+              }
+            </td>
+            <td class="col-actions">
+              <button class="btn-logs" (click)="viewLogs(job)">📋 Logs</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr class="empty-row">
+            <td colspan="6">
+              @if (!isLoading()) {
+                <div class="empty-state">
+                  <span class="empty-icon">📭</span>
+                  <p>No publish jobs found</p>
+                </div>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <div class="pagination">
+      <button 
+        class="btn-page" 
+        [disabled]="page() <= 1"
+        (click)="onPageChange(page() - 1)"
+      >
+        ← Previous
+      </button>
+      
+      <div class="page-numbers">
+        @for (pageNum of getPageNumbers(); track pageNum) {
+          @if (pageNum === -1) {
+            <span class="ellipsis">...</span>
+          } @else {
+            <button 
+              class="btn-page-num" 
+              [class.active]="pageNum === page()"
+              (click)="onPageChange(pageNum)"
+            >
+              {{ pageNum }}
+            </button>
+          }
+        }
+      </div>
+      
+      <button 
+        class="btn-page" 
+        [disabled]="page() >= totalPages"
+        (click)="onPageChange(page() + 1)"
+      >
+        Next →
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Logs Modal -->
+@if (showLogsModal()) {
+  <div class="modal-overlay" (click)="closeLogsModal()">
+    <div class="modal-content logs-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📋 Channel Publish Logs</h2>
+        <button class="btn-close" (click)="closeLogsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        @if (logsLoading()) {
+          <div class="logs-loading">
+            <div class="spinner"></div>
+            <p>Loading logs...</p>
+          </div>
+        } @else if (logs().length === 0) {
+          <div class="no-logs">
+            <p>No publish logs found for this content</p>
+          </div>
+        } @else {
+          <div class="logs-list">
+            @for (log of logs(); track log.id) {
+              <div class="log-item" [class]="getStatusClass(log.status)">
+                <div class="log-header">
+                  <span class="log-channel">
+                    {{ getChannelIcon(log.channel) }} {{ log.channel }}
+                  </span>
+                  <span class="log-status" [class]="getStatusClass(log.status)">
+                    {{ log.status }}
+                  </span>
+                  <span class="log-date">{{ formatDate(log.createdAtUtc) }}</span>
+                </div>
+                @if (log.channel === 'X' && log.externalPostId) {
+                  <div class="log-external-id">
+                    <span class="x-icon">𝕏</span>
+                    <a [href]="'https://x.com/i/status/' + log.externalPostId" target="_blank" class="tweet-link">
+                      Tweet ID: {{ log.externalPostId }}
+                    </a>
+                  </div>
+                }
+                @if (log.error) {
+                  <div class="log-error">
+                    <strong>Error:</strong> {{ log.error }}
+                  </div>
+                }
+                @if (log.responseJson) {
+                  <details class="log-details">
+                    <summary>Response</summary>
+                    <pre>{{ log.responseJson }}</pre>
+                  </details>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn-close-modal" (click)="closeLogsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}
+

@@ -1,0 +1,238 @@
+<div class="alerts-page">
+  <header class="page-header">
+    <h1>🔔 System Alerts</h1>
+    <p class="subtitle">Monitor system health, failovers, and compliance issues</p>
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filter-group">
+      <label>Severity</label>
+      <select [(ngModel)]="severityFilter">
+        <option value="">All</option>
+        @for (opt of severityOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Type</label>
+      <select [(ngModel)]="typeFilter">
+        <option value="">All</option>
+        @for (opt of typeOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Status</label>
+      <select [(ngModel)]="acknowledgedFilter">
+        <option [ngValue]="null">All</option>
+        <option [ngValue]="false">Pending</option>
+        <option [ngValue]="true">Acknowledged</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>From</label>
+      <input type="date" [(ngModel)]="fromDate">
+    </div>
+    <div class="filter-group">
+      <label>To</label>
+      <input type="date" [(ngModel)]="toDate">
+    </div>
+    <button class="btn-search" (click)="applyFilters()">
+      🔍 Filter
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading alerts...</p>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (error()) {
+    <div class="error-state">
+      <span class="error-icon">⚠️</span>
+      <p>{{ error() }}</p>
+      <button class="btn-retry" (click)="loadAlerts()">Retry</button>
+    </div>
+  }
+
+  <!-- Empty State -->
+  @if (!isLoading() && !error() && alerts().length === 0) {
+    <div class="empty-state">
+      <span class="empty-icon">✅</span>
+      <p>No alerts found</p>
+    </div>
+  }
+
+  <!-- Table -->
+  @if (!isLoading() && !error() && alerts().length > 0) {
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Severity</th>
+            <th>Type</th>
+            <th>Title</th>
+            <th>Message</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (alert of alerts(); track alert.id) {
+            <tr 
+              [class.acknowledged]="alert.isAcknowledged"
+              [class.critical]="alert.severity === 'Critical' && !alert.isAcknowledged"
+              (click)="openDetail(alert)"
+            >
+              <td class="date-cell">{{ formatDate(alert.createdAtUtc) }}</td>
+              <td>
+                <span class="severity-badge" [class]="getSeverityClass(alert.severity)">
+                  {{ getSeverityIcon(alert.severity) }} {{ alert.severity }}
+                </span>
+              </td>
+              <td>
+                <span class="type-badge">
+                  {{ getTypeIcon(alert.type) }} {{ alert.type }}
+                </span>
+              </td>
+              <td class="title-cell">{{ alert.title }}</td>
+              <td class="message-cell">
+                {{ alert.message.length > 60 ? alert.message.substring(0, 60) + '...' : alert.message }}
+              </td>
+              <td>
+                @if (alert.isAcknowledged) {
+                  <span class="ack-badge">
+                    ✓ Acknowledged
+                  </span>
+                } @else {
+                  <span class="pending-badge">
+                    ⏳ Pending
+                  </span>
+                }
+              </td>
+              <td class="actions-cell" (click)="$event.stopPropagation()">
+                @if (isAdmin && !alert.isAcknowledged) {
+                  <button 
+                    class="btn-ack"
+                    (click)="acknowledgeAlert(alert)"
+                    [disabled]="ackingId() === alert.id"
+                  >
+                    @if (ackingId() === alert.id) {
+                      <span class="spinner-sm"></span>
+                    } @else {
+                      ✓ Ack
+                    }
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <button 
+        class="btn-page" 
+        (click)="prevPage()" 
+        [disabled]="currentPage() === 1"
+      >
+        ← Prev
+      </button>
+      <span class="page-info">
+        Page {{ currentPage() }} · {{ totalItems() }} alerts
+      </span>
+      <button 
+        class="btn-page" 
+        (click)="nextPage()"
+        [disabled]="currentPage() * pageSize() >= totalItems()"
+      >
+        Next →
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Detail Modal -->
+@if (showDetailModal() && selectedAlert()) {
+  <div class="modal-overlay" (click)="closeDetailModal()">
+    <div class="modal-content detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ getSeverityIcon(selectedAlert()!.severity) }} Alert Details</h2>
+        <button class="btn-close" (click)="closeDetailModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-row">
+          <label>Title</label>
+          <span>{{ selectedAlert()!.title }}</span>
+        </div>
+        <div class="detail-row">
+          <label>Severity</label>
+          <span class="severity-badge" [class]="getSeverityClass(selectedAlert()!.severity)">
+            {{ selectedAlert()!.severity }}
+          </span>
+        </div>
+        <div class="detail-row">
+          <label>Type</label>
+          <span>{{ getTypeIcon(selectedAlert()!.type) }} {{ selectedAlert()!.type }}</span>
+        </div>
+        <div class="detail-row">
+          <label>Created</label>
+          <span>{{ formatDate(selectedAlert()!.createdAtUtc) }}</span>
+        </div>
+        <div class="detail-row full-width">
+          <label>Message</label>
+          <p class="message-text">{{ selectedAlert()!.message }}</p>
+        </div>
+        @if (selectedAlert()!.isAcknowledged) {
+          <div class="detail-row">
+            <label>Acknowledged By</label>
+            <span>{{ selectedAlert()!.acknowledgedByUserEmail }}</span>
+          </div>
+          <div class="detail-row">
+            <label>Acknowledged At</label>
+            <span>{{ formatDate(selectedAlert()!.acknowledgedAtUtc!) }}</span>
+          </div>
+        }
+        @if (selectedAlert()!.metaJson) {
+          <div class="detail-row full-width">
+            <label>Metadata</label>
+            <pre class="meta-json">{{ selectedAlert()!.metaJson | json }}</pre>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        @if (isAdmin && !selectedAlert()!.isAcknowledged) {
+          <button 
+            class="btn-ack-large"
+            (click)="acknowledgeAlert(selectedAlert()!)"
+            [disabled]="ackingId() === selectedAlert()!.id"
+          >
+            @if (ackingId() === selectedAlert()!.id) {
+              <span class="spinner-sm"></span>
+            }
+            ✓ Acknowledge
+          </button>
+        }
+        <button class="btn-cancel" (click)="closeDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}
+

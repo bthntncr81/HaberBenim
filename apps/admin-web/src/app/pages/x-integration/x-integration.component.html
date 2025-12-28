@@ -1,0 +1,598 @@
+<div class="x-integration-page">
+  <header class="page-header">
+    <div class="header-content">
+      <h1>𝕏 X Integration</h1>
+      <p class="subtitle">Configure OAuth2 connection to X (Twitter) API</p>
+    </div>
+  </header>
+
+  <!-- Settings Section -->
+  <section class="settings-section">
+    <div class="section-header">
+      <h2>⚙️ X API Credentials</h2>
+      <p class="hint">X Developer Portal'dan aldığınız tüm API bilgilerini buraya girin</p>
+    </div>
+
+    @if (isLoadingSettings()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <span>Loading settings...</span>
+      </div>
+    } @else {
+      <div class="settings-form">
+        <!-- API Key & Secret -->
+        <div class="settings-group">
+          <h3>🔑 API Keys (Consumer Keys)</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="apiKey">API Key *</label>
+              <input 
+                type="text" 
+                id="apiKey" 
+                [(ngModel)]="settings.apiKey"
+                placeholder="X API Key (Consumer Key)"
+              >
+            </div>
+            <div class="form-group">
+              <label for="apiSecretKey">API Secret Key *</label>
+              <input 
+                type="password" 
+                id="apiSecretKey" 
+                [(ngModel)]="settings.apiSecretKey"
+                placeholder="X API Secret Key (Consumer Secret)"
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- Bearer Token -->
+        <div class="settings-group">
+          <h3>🎫 Bearer Token</h3>
+          <div class="form-group">
+            <label for="bearerToken">Bearer Token *</label>
+            <input 
+              type="password" 
+              id="bearerToken" 
+              [(ngModel)]="settings.bearerToken"
+              placeholder="App-only Bearer Token"
+            >
+            <span class="hint">Tweet okuma ve kaynak takibi için kullanılır</span>
+          </div>
+        </div>
+
+        <!-- Access Token & Secret -->
+        <div class="settings-group">
+          <h3>🔐 Access Token (User Authentication)</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="accessToken">Access Token *</label>
+              <input 
+                type="password" 
+                id="accessToken" 
+                [(ngModel)]="settings.accessToken"
+                placeholder="User Access Token"
+              >
+            </div>
+            <div class="form-group">
+              <label for="accessTokenSecret">Access Token Secret *</label>
+              <input 
+                type="password" 
+                id="accessTokenSecret" 
+                [(ngModel)]="settings.accessTokenSecret"
+                placeholder="User Access Token Secret"
+              >
+            </div>
+          </div>
+          <span class="hint">Tweet paylaşımı için kullanılır (OAuth 1.0a)</span>
+        </div>
+
+        <!-- OAuth2 Settings (Optional) -->
+        <div class="settings-group collapsible">
+          <h3>🔄 OAuth2 Ayarları (İsteğe Bağlı)</h3>
+          <p class="hint">OAuth2 PKCE flow kullanmak isterseniz doldurun</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="clientId">Client ID</label>
+              <input 
+                type="text" 
+                id="clientId" 
+                [(ngModel)]="settings.clientId"
+                placeholder="OAuth2 Client ID"
+              >
+            </div>
+            <div class="form-group">
+              <label for="clientSecret">Client Secret</label>
+              <input 
+                type="password" 
+                id="clientSecret" 
+                [(ngModel)]="settings.clientSecret"
+                placeholder="OAuth2 Client Secret"
+              >
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="redirectUri">Redirect URI</label>
+            <input 
+              type="text" 
+              id="redirectUri" 
+              [(ngModel)]="settings.redirectUri"
+              placeholder="http://localhost:5078/api/v1/integrations/x/callback"
+            >
+          </div>
+        </div>
+
+        @if (settingsError()) {
+          <div class="error-message">{{ settingsError() }}</div>
+        }
+
+        <div class="form-actions">
+          <button 
+            class="btn-save" 
+            (click)="saveSettings()"
+            [disabled]="isSavingSettings()"
+          >
+            @if (isSavingSettings()) {
+              <span class="spinner-sm"></span>
+            }
+            💾 Ayarları Kaydet
+          </button>
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- Test Section -->
+  <section class="test-section">
+    <div class="section-header">
+      <h2>🧪 API Bağlantı Testleri</h2>
+      <p class="hint">X API credential'larınızı test edin</p>
+    </div>
+
+    <!-- Config Status -->
+    @if (configStatus()) {
+      <div class="config-status">
+        <div class="status-row">
+          <span class="status-label">OAuth 1.0a (Tweet Paylaşımı):</span>
+          <span class="status-value" [class.configured]="configStatus()!.oauth1.configured" [class.not-configured]="!configStatus()!.oauth1.configured">
+            @if (configStatus()!.oauth1.configured) {
+              ✓ Yapılandırıldı
+            } @else {
+              ✕ Eksik
+            }
+          </span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Bearer Token (Tweet Okuma):</span>
+          <span class="status-value" [class.configured]="configStatus()!.oauth2.hasBearerToken" [class.not-configured]="!configStatus()!.oauth2.hasBearerToken">
+            @if (configStatus()!.oauth2.hasBearerToken) {
+              ✓ Yapılandırıldı
+            } @else {
+              ✕ Eksik
+            }
+          </span>
+        </div>
+        <div class="recommendations">
+          @for (rec of configStatus()!.recommendations; track rec) {
+            <div class="recommendation-item">{{ rec }}</div>
+          }
+        </div>
+      </div>
+    }
+
+    <div class="test-buttons">
+      <button 
+        class="btn-test" 
+        (click)="testOAuth1()"
+        [disabled]="isTestingOAuth1()"
+      >
+        @if (isTestingOAuth1()) {
+          <span class="spinner-sm"></span>
+        }
+        🔑 OAuth 1.0a Test
+      </button>
+
+      <button 
+        class="btn-test" 
+        (click)="testBearer()"
+        [disabled]="isTestingBearer()"
+      >
+        @if (isTestingBearer()) {
+          <span class="spinner-sm"></span>
+        }
+        🎫 Bearer Token Test
+      </button>
+
+      <button 
+        class="btn-refresh" 
+        (click)="loadConfigStatus()"
+      >
+        🔄 Durumu Yenile
+      </button>
+    </div>
+
+    <!-- OAuth1 Test Result -->
+    @if (oauth1TestResult()) {
+      <div class="test-result" [class.success]="oauth1TestResult()!.success" [class.error]="!oauth1TestResult()!.success">
+        @if (oauth1TestResult()!.success) {
+          <span class="icon">✓</span>
+          <span>OAuth 1.0a çalışıyor! Bağlı hesap: &#64;{{ oauth1TestResult()!.user?.username }}</span>
+        } @else {
+          <span class="icon">✕</span>
+          <span>{{ oauth1TestResult()!.message }}</span>
+          @if (oauth1TestResult()!.error) {
+            <div class="error-detail">{{ oauth1TestResult()!.error }}</div>
+          }
+        }
+      </div>
+    }
+
+    <!-- Bearer Test Result -->
+    @if (bearerTestResult()) {
+      <div class="test-result" [class.success]="bearerTestResult()!.success" [class.error]="!bearerTestResult()!.success">
+        @if (bearerTestResult()!.success) {
+          <span class="icon">✓</span>
+          <span>Bearer Token çalışıyor! {{ bearerTestResult()!.resultCount }} tweet bulundu.</span>
+        } @else {
+          <span class="icon">✕</span>
+          <span>{{ bearerTestResult()!.message }}</span>
+          @if (bearerTestResult()!.error) {
+            <div class="error-detail">{{ bearerTestResult()!.error }}</div>
+          }
+        }
+      </div>
+    }
+
+    <!-- Test Tweet Section -->
+    <div class="test-tweet-section">
+      <h3>📝 Test Tweet</h3>
+      <div class="test-tweet-form">
+        <textarea 
+          [(ngModel)]="testTweetText"
+          placeholder="Test tweet metni yazın... (max 280 karakter)"
+          maxlength="280"
+          rows="3"
+        ></textarea>
+        <div class="tweet-actions">
+          <span class="char-count">{{ testTweetText.length }}/280</span>
+          <button 
+            class="btn-tweet"
+            (click)="testTweet()"
+            [disabled]="isTestingPost() || !testTweetText.trim()"
+          >
+            @if (isTestingPost()) {
+              <span class="spinner-sm"></span>
+            }
+            𝕏 Tweet Gönder
+          </button>
+        </div>
+      </div>
+      
+      @if (testPostResult()) {
+        <div class="test-result" [class.success]="testPostResult()!.success" [class.error]="!testPostResult()!.success">
+          @if (testPostResult()!.success) {
+            <span class="icon">✓</span>
+            <span>Tweet başarıyla gönderildi!</span>
+            @if (testPostResult()!.tweet) {
+              <a [href]="testPostResult()!.tweet?.url" target="_blank" class="tweet-link">
+                Tweet'i görüntüle →
+              </a>
+            }
+          } @else {
+            <span class="icon">✕</span>
+            <span>{{ testPostResult()!.message }}</span>
+          }
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Ingestion Status Section -->
+  <section class="ingestion-section">
+    <div class="section-header">
+      <h2>📡 X Kaynak Çekme (Ingestion)</h2>
+      <p class="hint">X kaynaklarından tweet çekme durumu ve manuel tetikleme</p>
+    </div>
+
+    <div class="ingestion-actions">
+      <button 
+        class="btn-trigger"
+        (click)="triggerIngestion()"
+        [disabled]="isTriggeringIngestion()"
+      >
+        @if (isTriggeringIngestion()) {
+          <span class="spinner-sm"></span>
+        }
+        ⚡ Tüm Kaynakları Çek
+      </button>
+
+      <button 
+        class="btn-refresh"
+        (click)="loadIngestionStatus()"
+        [disabled]="isLoadingIngestion()"
+      >
+        🔄 Durumu Yenile
+      </button>
+    </div>
+
+    @if (isLoadingIngestion()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <span>Loading ingestion status...</span>
+      </div>
+    } @else if (ingestionStatus()) {
+      <div class="ingestion-summary">
+        <div class="summary-card">
+          <span class="label">Credential</span>
+          <span class="value" [class.configured]="ingestionStatus()!.hasCredentials" [class.not-configured]="!ingestionStatus()!.hasCredentials">
+            {{ ingestionStatus()!.credentialType }}
+          </span>
+        </div>
+        <div class="summary-card">
+          <span class="label">X Kaynakları</span>
+          <span class="value">{{ ingestionStatus()!.totalXSources }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">X İçerikleri</span>
+          <span class="value">{{ ingestionStatus()!.xContentItems }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">Toplam İçerik</span>
+          <span class="value">{{ ingestionStatus()!.totalContentItems }}</span>
+        </div>
+      </div>
+
+      @if (ingestionStatus()!.sources.length > 0) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Kaynak</th>
+                <th>Identifier</th>
+                <th>X User ID</th>
+                <th>Son Çekim</th>
+                <th>Durum</th>
+                <th>İçerik</th>
+                <th>Aksiyon</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (source of ingestionStatus()!.sources; track source.sourceId) {
+                <tr [class.has-error]="source.consecutiveFailures > 0">
+                  <td class="source-name">{{ source.sourceName }}</td>
+                  <td class="identifier">&#64;{{ source.identifier }}</td>
+                  <td class="x-user-id">
+                    @if (source.xUserId) {
+                      <span class="resolved">{{ source.xUserId }}</span>
+                    } @else {
+                      <span class="not-resolved">Henüz çözümlenmedi</span>
+                    }
+                  </td>
+                  <td class="last-poll">
+                    @if (source.lastSuccessAt) {
+                      {{ formatDate(source.lastSuccessAt) }}
+                    } @else {
+                      <span class="never">Hiç çekilmedi</span>
+                    }
+                  </td>
+                  <td class="status">
+                    @if (source.consecutiveFailures > 0) {
+                      <span class="error-badge" [title]="source.lastError || ''">
+                        ⚠️ {{ source.consecutiveFailures }} hata
+                      </span>
+                    } @else if (source.lastSuccessAt) {
+                      <span class="success-badge">✓ Başarılı</span>
+                    } @else {
+                      <span class="pending-badge">⏳ Bekliyor</span>
+                    }
+                  </td>
+                  <td class="content-count">{{ source.contentItemCount }}</td>
+                  <td class="actions">
+                    <button 
+                      class="btn-action trigger"
+                      (click)="triggerSourceIngestion(source)"
+                      [disabled]="triggeringSourceId() === source.sourceId"
+                      title="Bu kaynağı şimdi çek"
+                    >
+                      @if (triggeringSourceId() === source.sourceId) {
+                        <span class="spinner-sm"></span>
+                      } @else {
+                        ⚡
+                      }
+                    </button>
+                  </td>
+                </tr>
+                @if (source.lastError) {
+                  <tr class="error-row">
+                    <td colspan="7" class="error-message">
+                      Son Hata: {{ source.lastError }}
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">
+          <span class="empty-icon">📡</span>
+          <p>Henüz aktif X kaynağı yok</p>
+          <p class="hint">Sources sayfasından X tipi kaynak ekleyin</p>
+        </div>
+      }
+    }
+  </section>
+
+  <!-- Connect Section (OAuth2 PKCE) -->
+  <section class="connect-section">
+    <div class="section-header">
+      <h2>🔗 OAuth2 PKCE Bağlantısı</h2>
+      <p class="hint">Alternatif: OAuth2 ile X hesabınıza bağlanın</p>
+    </div>
+
+    <div class="connect-actions">
+      <button 
+        class="btn-connect" 
+        (click)="connectToX()"
+        [disabled]="isConnecting()"
+      >
+        @if (isConnecting()) {
+          <span class="spinner-sm"></span>
+          Waiting for authorization...
+        } @else {
+          𝕏 Connect to X
+        }
+      </button>
+
+      <button 
+        class="btn-test" 
+        (click)="testConnection()"
+        [disabled]="isTesting()"
+      >
+        @if (isTesting()) {
+          <span class="spinner-sm"></span>
+        }
+        🔍 Test OAuth2
+      </button>
+
+      <button 
+        class="btn-refresh" 
+        (click)="loadConnections()"
+        [disabled]="isLoadingConnections()"
+      >
+        🔄 Refresh
+      </button>
+    </div>
+
+    @if (testResult()) {
+      <div class="test-result" [class.success]="testResult()!.connected" [class.error]="!testResult()!.connected">
+        @if (testResult()!.connected) {
+          <span class="icon">✓</span>
+          <span>Connected as &#64;{{ testResult()!.username }}</span>
+        } @else {
+          <span class="icon">✕</span>
+          <span>{{ testResult()!.message }}</span>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- Connections Table -->
+  <section class="connections-section">
+    <div class="section-header">
+      <h2>📋 Connected Accounts</h2>
+    </div>
+
+    @if (isLoadingConnections()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <span>Loading connections...</span>
+      </div>
+    } @else if (connectionsError()) {
+      <div class="error-state">
+        <span>{{ connectionsError() }}</span>
+        <button class="btn-retry" (click)="loadConnections()">Retry</button>
+      </div>
+    } @else if (connections().length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon">🔌</span>
+        <p>No X accounts connected yet</p>
+        <p class="hint">Click "Connect to X" to add your first account</p>
+      </div>
+    } @else {
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Scopes</th>
+              <th>Expires</th>
+              <th>Default</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (conn of connections(); track conn.id) {
+              <tr [class.inactive]="!conn.isActive">
+                <td class="account-cell">
+                  <span class="x-icon">𝕏</span>
+                  <div class="account-info">
+                    <span class="username">&#64;{{ conn.xUsername }}</span>
+                    <span class="user-id">ID: {{ conn.xUserId }}</span>
+                  </div>
+                </td>
+                <td class="scopes-cell">
+                  <div class="scopes-list">
+                    @for (scope of conn.scopes.split(' '); track scope) {
+                      <span class="scope-badge">{{ scope }}</span>
+                    }
+                  </div>
+                </td>
+                <td class="expires-cell">
+                  <span [class.expiring-soon]="isExpiringSoon(conn.expiresAtUtc)">
+                    {{ formatDate(conn.expiresAtUtc) }}
+                  </span>
+                  @if (isExpiringSoon(conn.expiresAtUtc)) {
+                    <span class="warning-badge">⚠️ Expiring</span>
+                  }
+                </td>
+                <td class="default-cell">
+                  @if (conn.isDefaultPublisher) {
+                    <span class="default-badge">✓ Default</span>
+                  } @else {
+                    <span class="not-default">-</span>
+                  }
+                </td>
+                <td class="status-cell">
+                  @if (conn.isActive) {
+                    <span class="status-badge active">Active</span>
+                  } @else {
+                    <span class="status-badge inactive">Inactive</span>
+                  }
+                </td>
+                <td class="actions-cell">
+                  @if (!conn.isDefaultPublisher && conn.isActive) {
+                    <button 
+                      class="btn-action"
+                      (click)="setDefault(conn)"
+                      [disabled]="settingDefaultId() === conn.id"
+                      title="Set as default publisher"
+                    >
+                      @if (settingDefaultId() === conn.id) {
+                        <span class="spinner-sm"></span>
+                      } @else {
+                        ⭐
+                      }
+                    </button>
+                  }
+                  @if (conn.isActive) {
+                    <button 
+                      class="btn-action disconnect"
+                      (click)="disconnect(conn)"
+                      [disabled]="disconnectingId() === conn.id"
+                      title="Disconnect"
+                    >
+                      @if (disconnectingId() === conn.id) {
+                        <span class="spinner-sm"></span>
+                      } @else {
+                        🔌
+                      }
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}
+

@@ -1,0 +1,412 @@
+<div class="page">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1>🔗 News Sources</h1>
+      <p>
+        @if (isAdmin()) {
+          Manage RSS feeds, X accounts, and other news sources
+        } @else {
+          View RSS feeds, X accounts, and other news sources (read-only)
+        }
+      </p>
+    </div>
+    @if (isAdmin()) {
+      <button class="btn-add" (click)="openAddModal()">+ Add Source</button>
+    }
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-card">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label>Search</label>
+        <input 
+          type="text" 
+          [(ngModel)]="searchQuery" 
+          placeholder="Name or identifier..."
+          (keyup.enter)="onSearch()"
+        >
+      </div>
+      <div class="filter-group">
+        <label>Type</label>
+        <select [(ngModel)]="typeFilter">
+          <option value="">All Types</option>
+          @for (type of sourceTypes; track type.value) {
+            <option [value]="type.value">{{ type.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Category</label>
+        <select [(ngModel)]="categoryFilter">
+          <option value="">All Categories</option>
+          @for (cat of categories; track cat) {
+            <option [value]="cat">{{ cat }}</option>
+          }
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Status</label>
+        <select [(ngModel)]="activeFilter">
+          <option value="">All</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button class="btn-search" (click)="onSearch()">🔍 Search</button>
+        <button class="btn-clear" (click)="onClearFilters()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Info -->
+  <div class="results-info">
+    <span>{{ total() }} sources found</span>
+  </div>
+
+  <!-- Sources List -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Loading sources...</span>
+    </div>
+  } @else if (error()) {
+    <div class="error-state">
+      <span>{{ error() }}</span>
+      <button class="btn-retry" (click)="loadSources()">Retry</button>
+    </div>
+  } @else if (sources().length === 0) {
+    <div class="empty-state">
+      <span class="empty-icon">📭</span>
+      <p>No sources found</p>
+      <button class="btn-add-empty" (click)="openAddModal()">Add your first source</button>
+    </div>
+  } @else {
+    <div class="sources-list">
+      @for (source of sources(); track source.id) {
+        <div class="source-card" [class.inactive]="!source.isActive">
+          <div class="source-header">
+            <div class="source-title">
+              <span class="type-icon">{{ getTypeIcon(source.type) }}</span>
+              <h3>{{ source.name }}</h3>
+              <span class="type-badge" [class]="source.type.toLowerCase()">{{ source.type }}</span>
+              <span class="category-badge">{{ source.category }}</span>
+            </div>
+            @if (isAdmin()) {
+              <div class="source-actions">
+                <button 
+                  class="btn-icon edit" 
+                  (click)="openEditModal(source)"
+                  title="Edit"
+                >
+                  ✏️
+                </button>
+                <button 
+                  class="btn-icon toggle" 
+                  [class.active]="source.isActive"
+                  (click)="toggleActive(source)"
+                  [disabled]="togglingId() === source.id"
+                  [title]="source.isActive ? 'Deactivate' : 'Activate'"
+                >
+                  @if (togglingId() === source.id) {
+                    <span class="spinner-xs"></span>
+                  } @else {
+                    {{ source.isActive ? '✓' : '○' }}
+                  }
+                </button>
+                <button 
+                  class="btn-icon delete" 
+                  (click)="deleteSource(source)"
+                  [disabled]="deletingId() === source.id"
+                  title="Delete"
+                >
+                  @if (deletingId() === source.id) {
+                    <span class="spinner-xs"></span>
+                  } @else {
+                    🗑️
+                  }
+                </button>
+              </div>
+            }
+          </div>
+
+          <div class="source-body">
+            <div class="source-meta">
+              @if (source.type === 'X' && source.identifier) {
+                <div class="meta-item">
+                  <span class="label">Username:</span>
+                  <span class="value x-username">&#64;{{ source.identifier }}</span>
+                </div>
+              }
+              @if (source.url) {
+                <div class="meta-item">
+                  <span class="label">URL:</span>
+                  <span class="value url">{{ source.url }}</span>
+                </div>
+              }
+              <div class="meta-item">
+                <span class="label">Trust:</span>
+                <span class="value">
+                  <span class="trust-bar">
+                    <span class="trust-fill" [style.width.%]="source.trustLevel"></span>
+                  </span>
+                  {{ source.trustLevel }}
+                </span>
+              </div>
+              <div class="meta-item">
+                <span class="label">Priority:</span>
+                <span class="value">{{ source.priority }}</span>
+              </div>
+              <div class="meta-item">
+                <span class="label">Behavior:</span>
+                <span class="value behavior-badge" [class]="source.defaultBehavior.toLowerCase()">
+                  {{ source.defaultBehavior }}
+                </span>
+              </div>
+            </div>
+            
+            <!-- X Source State -->
+            @if (source.type === 'X') {
+              <div class="x-state-section">
+                @if (source.isLoadingState) {
+                  <div class="x-state-loading">
+                    <span class="spinner-sm"></span>
+                    Loading X state...
+                  </div>
+                } @else if (source.xState) {
+                  <div class="x-state-grid">
+                    <div class="state-item">
+                      <span class="state-label">X User ID</span>
+                      <span class="state-value">{{ source.xState.xUserId || 'Not resolved' }}</span>
+                    </div>
+                    <div class="state-item">
+                      <span class="state-label">Last Since ID</span>
+                      <span class="state-value mono">{{ source.xState.lastSinceId || '-' }}</span>
+                    </div>
+                    <div class="state-item">
+                      <span class="state-label">Last Polled</span>
+                      <span class="state-value">{{ formatRelativeTime(source.xState.lastPolledAtUtc) }}</span>
+                    </div>
+                    <div class="state-item">
+                      <span class="state-label">Last Success</span>
+                      <span class="state-value" [class.success]="source.xState.lastSuccessAtUtc">
+                        {{ formatRelativeTime(source.xState.lastSuccessAtUtc) }}
+                      </span>
+                    </div>
+                    @if (source.xState.lastError) {
+                      <div class="state-item full-width error">
+                        <span class="state-label">Last Error</span>
+                        <span class="state-value error-text">{{ source.xState.lastError }}</span>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="x-state-empty">
+                    <span>No X state available</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="source-footer">
+            <span class="meta">Updated: {{ formatRelativeTime(source.updatedAtUtc) }}</span>
+            <span class="status-indicator" [class.active]="source.isActive">
+              {{ source.isActive ? '● Active' : '○ Inactive' }}
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <div class="pagination">
+      <button 
+        class="btn-page" 
+        [disabled]="page() <= 1"
+        (click)="onPageChange(page() - 1)"
+      >
+        ← Previous
+      </button>
+      
+      <div class="page-numbers">
+        @for (pageNum of getPageNumbers(); track pageNum) {
+          @if (pageNum === -1) {
+            <span class="ellipsis">...</span>
+          } @else {
+            <button 
+              class="btn-page-num" 
+              [class.active]="pageNum === page()"
+              (click)="onPageChange(pageNum)"
+            >
+              {{ pageNum }}
+            </button>
+          }
+        }
+      </div>
+      
+      <button 
+        class="btn-page" 
+        [disabled]="page() >= totalPages"
+        (click)="onPageChange(page() + 1)"
+      >
+        Next →
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Add/Edit Source Modal -->
+@if (showAddModal() || showEditModal()) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ editingSource() ? '✏️ Edit Source' : '➕ Add Source' }}</h2>
+        <button class="btn-close" (click)="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group" [class.has-error]="formErrors()['name']">
+            <label>Name *</label>
+            <input 
+              type="text" 
+              [(ngModel)]="formData.name" 
+              placeholder="e.g., Reuters, TechCrunch"
+              maxlength="120"
+            >
+            @if (formErrors()['name']) {
+              <span class="error">{{ formErrors()['name'] }}</span>
+            }
+          </div>
+          <div class="form-group" [class.has-error]="formErrors()['type']">
+            <label>Type *</label>
+            <select [(ngModel)]="formData.type" [disabled]="!!editingSource()">
+              @for (type of sourceTypes; track type.value) {
+                <option [value]="type.value">{{ type.label }}</option>
+              }
+            </select>
+            @if (formErrors()['type']) {
+              <span class="error">{{ formErrors()['type'] }}</span>
+            }
+          </div>
+        </div>
+        
+        @if (formData.type === 'X') {
+          <div class="form-group" [class.has-error]="formErrors()['identifier']">
+            <label>X Username *</label>
+            <input 
+              type="text" 
+              [(ngModel)]="formData.identifier" 
+              placeholder="username (without &#64;)"
+            >
+            @if (formErrors()['identifier']) {
+              <span class="error">{{ formErrors()['identifier'] }}</span>
+            } @else {
+              <span class="hint">Enter the X username to follow (&#64; will be stripped)</span>
+            }
+          </div>
+        }
+        
+        @if (formData.type === 'RSS' || formData.type === 'GoogleNews') {
+          <div class="form-group" [class.has-error]="formErrors()['url']">
+            <label>Feed URL {{ formData.type === 'RSS' ? '*' : '' }}</label>
+            <input 
+              type="url" 
+              [(ngModel)]="formData.url" 
+              placeholder="https://example.com/feed.xml"
+            >
+            @if (formErrors()['url']) {
+              <span class="error">{{ formErrors()['url'] }}</span>
+            }
+          </div>
+        }
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Category *</label>
+            <select [(ngModel)]="formData.category">
+              @for (cat of categories; track cat) {
+                <option [value]="cat">{{ cat }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Default Behavior *</label>
+            <select [(ngModel)]="formData.defaultBehavior">
+              @for (behavior of defaultBehaviors; track behavior.value) {
+                <option [value]="behavior.value">{{ behavior.label }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group" [class.has-error]="formErrors()['trustLevel']">
+            <label>Trust Level (0-100)</label>
+            <input 
+              type="number" 
+              [(ngModel)]="formData.trustLevel" 
+              min="0" 
+              max="100"
+            >
+            @if (formErrors()['trustLevel']) {
+              <span class="error">{{ formErrors()['trustLevel'] }}</span>
+            }
+          </div>
+          <div class="form-group" [class.has-error]="formErrors()['priority']">
+            <label>Priority (0-1000)</label>
+            <input 
+              type="number" 
+              [(ngModel)]="formData.priority" 
+              min="0" 
+              max="1000"
+            >
+            @if (formErrors()['priority']) {
+              <span class="error">{{ formErrors()['priority'] }}</span>
+            }
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Description</label>
+          <textarea 
+            [(ngModel)]="formData.description" 
+            placeholder="Optional description..."
+            rows="3"
+          ></textarea>
+        </div>
+        
+        <div class="form-group checkbox">
+          <label>
+            <input type="checkbox" [(ngModel)]="formData.isActive">
+            Active (enable ingestion)
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeModal()">Cancel</button>
+        <button 
+          class="btn-create" 
+          (click)="submitForm()"
+          [disabled]="isSubmitting() || !isFormValid"
+        >
+          @if (isSubmitting()) {
+            <span class="spinner-sm"></span>
+          }
+          {{ editingSource() ? 'Save Changes' : 'Create Source' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}

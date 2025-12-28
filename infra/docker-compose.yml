@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: haber-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: haber_platform
+      POSTGRES_USER: haber
+      POSTGRES_PASSWORD: haber123
+    ports:
+      - "5432:5432"
+    volumes:
+      - haber_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U haber -d haber_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  haber_postgres_data:
+    name: haber_postgres_data

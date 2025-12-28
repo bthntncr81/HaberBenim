@@ -1,0 +1,217 @@
+<div class="breaking-page">
+  <header class="page-header">
+    <div class="header-left">
+      <h1>🔴 Breaking News</h1>
+      <p class="subtitle">Fast-track content for immediate publishing</p>
+    </div>
+    <div class="header-actions">
+      @if (canManageBreaking) {
+        <button class="btn-mark" (click)="openMarkModal()">
+          ⚡ Mark as Breaking
+        </button>
+      }
+    </div>
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filter-group">
+      <label>Status</label>
+      <select [(ngModel)]="statusFilter">
+        <option value="">All</option>
+        <option value="ReadyToPublish">Ready to Publish</option>
+        <option value="Published">Published</option>
+      </select>
+    </div>
+    <button class="btn-search" (click)="applyFilters()">
+      🔍 Filter
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading breaking news...</p>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (error()) {
+    <div class="error-state">
+      <span class="error-icon">⚠️</span>
+      <p>{{ error() }}</p>
+      <button class="btn-retry" (click)="loadItems()">Retry</button>
+    </div>
+  }
+
+  <!-- Empty State -->
+  @if (!isLoading() && !error() && items().length === 0) {
+    <div class="empty-state">
+      <span class="empty-icon">📰</span>
+      <p>No breaking news items</p>
+    </div>
+  }
+
+  <!-- Table -->
+  @if (!isLoading() && !error() && items().length > 0) {
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Breaking At</th>
+            <th>Priority</th>
+            <th>Title</th>
+            <th>Source</th>
+            <th>Status</th>
+            <th>Note</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of items(); track item.id) {
+            <tr>
+              <td class="date-cell">{{ formatDate(item.breakingAtUtc) }}</td>
+              <td>
+                <span class="priority-badge" [class]="getPriorityClass(item.breakingPriority)">
+                  {{ item.breakingPriority }}
+                </span>
+              </td>
+              <td class="title-cell">
+                <span class="title-text">{{ item.title }}</span>
+                @if (item.breakingPushRequired) {
+                  <span class="push-badge" title="Push required">📱</span>
+                }
+              </td>
+              <td>{{ item.sourceName }}</td>
+              <td>
+                <span class="status-badge" [class]="getStatusClass(item.status)">
+                  {{ item.status }}
+                </span>
+              </td>
+              <td class="note-cell">
+                @if (item.breakingNote) {
+                  <span class="note-text" [title]="item.breakingNote">
+                    {{ item.breakingNote.length > 30 ? item.breakingNote.substring(0, 30) + '...' : item.breakingNote }}
+                  </span>
+                } @else {
+                  -
+                }
+              </td>
+              <td class="actions-cell">
+                <button class="btn-action" (click)="openEditor(item.id)" title="Open Editor">
+                  ✏️
+                </button>
+                @if (canManageBreaking && item.status !== 'Published') {
+                  <button 
+                    class="btn-action publish" 
+                    (click)="publishNow(item)"
+                    [disabled]="publishingId() === item.id"
+                    title="Publish Now"
+                  >
+                    @if (publishingId() === item.id) {
+                      <span class="spinner-sm"></span>
+                    } @else {
+                      🚀
+                    }
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <button 
+        class="btn-page" 
+        (click)="prevPage()" 
+        [disabled]="currentPage() === 1"
+      >
+        ← Prev
+      </button>
+      <span class="page-info">
+        Page {{ currentPage() }} · {{ totalItems() }} items
+      </span>
+      <button 
+        class="btn-page" 
+        (click)="nextPage()"
+        [disabled]="currentPage() * pageSize() >= totalItems()"
+      >
+        Next →
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Mark Breaking Modal -->
+@if (showMarkModal()) {
+  <div class="modal-overlay" (click)="closeMarkModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>⚡ Mark as Breaking News</h2>
+        <button class="btn-close" (click)="closeMarkModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Content ID *</label>
+          <input 
+            type="text" 
+            [(ngModel)]="markContentId"
+            placeholder="Enter content GUID..."
+          >
+          <span class="hint">Copy from Feed or Approval page</span>
+        </div>
+        <div class="form-group">
+          <label>Breaking Note</label>
+          <textarea 
+            [(ngModel)]="markNote"
+            rows="3"
+            placeholder="Why is this breaking news?"
+          ></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Priority</label>
+            <input 
+              type="number" 
+              [(ngModel)]="markPriority"
+              min="1"
+              max="1000"
+            >
+            <span class="hint">Higher = more urgent (100 = normal)</span>
+          </div>
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="markPushRequired">
+              <span>Push notification required</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeMarkModal()">Cancel</button>
+        <button 
+          class="btn-confirm" 
+          (click)="submitMark()"
+          [disabled]="!markContentId.trim() || isMarking()"
+        >
+          @if (isMarking()) {
+            <span class="spinner-sm"></span>
+          }
+          Mark as Breaking
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}
+

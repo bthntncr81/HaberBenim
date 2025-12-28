@@ -1,0 +1,681 @@
+<div class="editor-page">
+  @if (isLoading()) {
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p>Loading content...</p>
+    </div>
+  } @else if (item()) {
+    <!-- Header -->
+    <header class="editor-header">
+      <div class="header-left">
+        <button class="btn-back" (click)="goBack()">← Back</button>
+        <div class="header-info">
+          <h1>{{ item()!.title }}</h1>
+          <div class="meta-row">
+            <span class="source-badge">{{ item()!.sourceName }}</span>
+            <span class="status-badge" [class]="getStatusClass(item()!.status)">
+              {{ item()!.status }}
+            </span>
+            @if (item()!.scheduledAtUtc) {
+              <span class="scheduled-info">📅 {{ formatDate(item()!.scheduledAtUtc) }}</span>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button 
+          class="btn-save" 
+          (click)="saveDraft()"
+          [disabled]="isSaving()"
+        >
+          @if (isSaving()) {
+            <span class="spinner-sm"></span>
+          }
+          💾 Save Draft
+        </button>
+        @if (canApproveRejectSchedule) {
+          <button 
+            class="btn-approve" 
+            (click)="approve()"
+            [disabled]="isApproving()"
+          >
+            @if (isApproving()) {
+              <span class="spinner-sm"></span>
+            }
+            ✅ Approve
+          </button>
+          <button 
+            class="btn-reject" 
+            (click)="openRejectModal()"
+          >
+            ❌ Reject
+          </button>
+          <button 
+            class="btn-schedule" 
+            (click)="openScheduleModal()"
+          >
+            📅 Schedule
+          </button>
+        }
+        @if (canEnqueuePublish) {
+          <button 
+            class="btn-enqueue" 
+            (click)="enqueuePublish()"
+            [disabled]="isEnqueueing()"
+          >
+            @if (isEnqueueing()) {
+              <span class="spinner-sm"></span>
+            }
+            🚀 Publish
+          </button>
+        }
+        <button class="btn-logs" (click)="viewPublishLogs()">
+          📋 Logs
+        </button>
+      </div>
+    </header>
+
+    <!-- Breaking News Badge -->
+    @if (isBreaking) {
+      <div class="breaking-badge-banner">
+        <span class="breaking-icon">🔴</span>
+        <span class="breaking-text">BREAKING NEWS</span>
+      </div>
+    }
+
+    <!-- Correction Banner for Published Items -->
+    @if (isPublished) {
+      <div class="correction-banner">
+        <div class="correction-info">
+          <span class="correction-icon">✏️</span>
+          <div class="correction-text">
+            <strong>Correction Mode</strong>
+            <span>This content is already published. Make edits and save a correction to republish.</span>
+          </div>
+          <div class="version-info">
+            <span class="version-label">Current Version:</span>
+            <span class="version-number">v{{ currentVersionNo }}</span>
+            <span class="version-label">Last Action:</span>
+            <span class="version-action">{{ lastActionType }}</span>
+          </div>
+        </div>
+        @if (canCorrect) {
+          <div class="correction-actions">
+            <button 
+              class="btn-correction" 
+              (click)="openCorrectionModal()"
+              [disabled]="isCorrecting()"
+            >
+              @if (isCorrecting()) {
+                <span class="spinner-sm"></span>
+              }
+              📝 Save & Republish Correction
+            </button>
+            @if (canRetract) {
+              <button 
+                class="btn-retract" 
+                (click)="openRetractModal()"
+                [disabled]="isRetracting()"
+              >
+                🚫 Retract
+              </button>
+            }
+            <button 
+              class="btn-view-publishing" 
+              (click)="goToPublishing()"
+            >
+              📊 View in Publishing
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Mark Breaking Button (for non-published items) -->
+    @if (!isPublished && canMarkBreaking && !isBreaking) {
+      <div class="breaking-action-banner">
+        <div class="breaking-action-info">
+          <span class="breaking-icon">⚡</span>
+          <span>Need to fast-track this content?</span>
+        </div>
+        <button 
+          class="btn-mark-breaking" 
+          (click)="openBreakingModal()"
+          [disabled]="isMarkingBreaking()"
+        >
+          @if (isMarkingBreaking()) {
+            <span class="spinner-sm"></span>
+          }
+          🔴 Mark as Breaking News
+        </button>
+      </div>
+    }
+
+    <div class="editor-content">
+      <!-- Main Editor Area -->
+      <div class="editor-main">
+        <!-- Tabs -->
+        <div class="tabs">
+          <button 
+            class="tab" 
+            [class.active]="activeTab() === 'x'"
+            (click)="setActiveTab('x')"
+          >
+            𝕏 X/Twitter
+          </button>
+          <button 
+            class="tab" 
+            [class.active]="activeTab() === 'web'"
+            (click)="setActiveTab('web')"
+          >
+            🌐 Web
+          </button>
+          <button 
+            class="tab" 
+            [class.active]="activeTab() === 'mobile'"
+            (click)="setActiveTab('mobile')"
+          >
+            📱 Mobile
+          </button>
+          <button 
+            class="tab" 
+            [class.active]="activeTab() === 'push'"
+            (click)="setActiveTab('push')"
+          >
+            🔔 Push
+          </button>
+          <button 
+            class="tab" 
+            [class.active]="activeTab() === 'meta'"
+            (click)="setActiveTab('meta')"
+          >
+            ⚙️ Meta
+          </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+          <!-- X Tab -->
+          @if (activeTab() === 'x') {
+            <div class="tab-panel">
+              <div class="form-group">
+                <label>X/Twitter Text</label>
+                <textarea 
+                  [(ngModel)]="draft.xText" 
+                  rows="6"
+                  placeholder="Enter tweet text..."
+                ></textarea>
+                <div class="char-counter" [class.warning]="xCharWarning">
+                  {{ xCharCount }} / 280
+                </div>
+              </div>
+              <div class="preview-section">
+                <h4>Preview</h4>
+                <div class="x-preview">
+                  <div class="x-avatar">{{ item()!.sourceName.charAt(0) }}</div>
+                  <div class="x-content">
+                    <div class="x-header">
+                      <span class="x-name">{{ item()!.sourceName }}</span>
+                      <span class="x-handle">&#64;source</span>
+                    </div>
+                    <div class="x-text">{{ draft.xText }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Web Tab -->
+          @if (activeTab() === 'web') {
+            <div class="tab-panel">
+              <div class="form-group">
+                <label>Web Title</label>
+                <input type="text" [(ngModel)]="draft.webTitle" placeholder="Article title...">
+              </div>
+              <div class="form-group">
+                <label>Web Body</label>
+                <textarea 
+                  [(ngModel)]="draft.webBody" 
+                  rows="12"
+                  placeholder="Full article body..."
+                ></textarea>
+              </div>
+            </div>
+          }
+
+          <!-- Mobile Tab -->
+          @if (activeTab() === 'mobile') {
+            <div class="tab-panel">
+              <div class="form-group">
+                <label>Mobile Summary</label>
+                <textarea 
+                  [(ngModel)]="draft.mobileSummary" 
+                  rows="4"
+                  placeholder="Short summary for mobile app..."
+                  maxlength="500"
+                ></textarea>
+                <span class="hint">Max 500 characters for mobile display</span>
+              </div>
+            </div>
+          }
+
+          <!-- Push Tab -->
+          @if (activeTab() === 'push') {
+            <div class="tab-panel">
+              <div class="form-group">
+                <label>Push Notification Title</label>
+                <input 
+                  type="text" 
+                  [(ngModel)]="draft.pushTitle" 
+                  placeholder="Notification title..."
+                  maxlength="100"
+                >
+                <span class="hint">Max 100 characters</span>
+              </div>
+              <div class="form-group">
+                <label>Push Notification Body</label>
+                <textarea 
+                  [(ngModel)]="draft.pushBody" 
+                  rows="3"
+                  placeholder="Notification body..."
+                  maxlength="300"
+                ></textarea>
+                <span class="hint">Max 300 characters</span>
+              </div>
+              <div class="preview-section">
+                <h4>Preview</h4>
+                <div class="push-preview">
+                  <div class="push-icon">📰</div>
+                  <div class="push-content">
+                    <div class="push-title">{{ draft.pushTitle || 'Notification Title' }}</div>
+                    <div class="push-body">{{ draft.pushBody || 'Notification body text...' }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Meta Tab -->
+          @if (activeTab() === 'meta') {
+            <div class="tab-panel">
+              <!-- Channel Toggles Section -->
+              <div class="channels-section">
+                <h4>📡 Publishing Channels</h4>
+                <p class="channels-hint">Disabled channels will be skipped during publishing</p>
+                <div class="channel-toggles">
+                  <label class="toggle-item">
+                    <input type="checkbox" [(ngModel)]="draft.publishToWeb">
+                    <span class="toggle-label">🌐 Web</span>
+                  </label>
+                  <label class="toggle-item">
+                    <input type="checkbox" [(ngModel)]="draft.publishToMobile">
+                    <span class="toggle-label">📱 Mobile</span>
+                  </label>
+                  <label class="toggle-item">
+                    <input type="checkbox" [(ngModel)]="draft.publishToX">
+                    <span class="toggle-label">𝕏 X/Twitter</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Hashtags (comma-separated)</label>
+                  <input 
+                    type="text" 
+                    [(ngModel)]="draft.hashtagsCsv" 
+                    placeholder="#breaking, #news, ..."
+                  >
+                </div>
+                <div class="form-group">
+                  <label>Mentions (comma-separated)</label>
+                  <input 
+                    type="text" 
+                    [(ngModel)]="draft.mentionsCsv" 
+                    placeholder="@user1, @user2, ..."
+                  >
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Editorial Note</label>
+                <textarea 
+                  [(ngModel)]="draft.editorialNote" 
+                  rows="3"
+                  placeholder="Internal notes for editors..."
+                ></textarea>
+              </div>
+              @if (item()!.canonicalUrl) {
+                <div class="form-group">
+                  <label>Original URL</label>
+                  <a [href]="item()!.canonicalUrl" target="_blank" class="url-link">
+                    {{ item()!.canonicalUrl }}
+                    <span class="external-icon">↗</span>
+                  </a>
+                </div>
+              }
+              @if (item()!.rejectionReason) {
+                <div class="rejection-box">
+                  <label>Rejection Reason</label>
+                  <p>{{ item()!.rejectionReason }}</p>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Sidebar: Revisions -->
+      <div class="editor-sidebar">
+        <div class="sidebar-section">
+          <h3>Revisions</h3>
+          <div class="revisions-list">
+            @for (rev of item()!.revisions; track rev.id) {
+              <div class="revision-item">
+                <span class="rev-icon">{{ getActionIcon(rev.actionType) }}</span>
+                <div class="rev-info">
+                  <span class="rev-action">{{ rev.actionType }}</span>
+                  <span class="rev-version">v{{ rev.versionNo }}</span>
+                </div>
+                <span class="rev-date">{{ formatDate(rev.createdAtUtc) }}</span>
+              </div>
+            } @empty {
+              <p class="no-revisions">No revisions yet</p>
+            }
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Original Content</h3>
+          <div class="original-info">
+            <div class="info-row">
+              <label>Published</label>
+              <span>{{ formatDate(item()!.publishedAtUtc) }}</span>
+            </div>
+            <div class="info-row">
+              <label>Ingested</label>
+              <span>{{ formatDate(item()!.ingestedAtUtc) }}</span>
+            </div>
+            @if (item()!.decisionType) {
+              <div class="info-row">
+                <label>Decision</label>
+                <span>{{ item()!.decisionType }}</span>
+              </div>
+            }
+            @if (item()!.media.length > 0) {
+              <div class="info-row">
+                <label>Media</label>
+                <span>{{ item()!.media.length }} file(s)</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- Reject Modal -->
+@if (showRejectModal()) {
+  <div class="modal-overlay" (click)="closeRejectModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Reject Content</h2>
+        <button class="btn-close" (click)="closeRejectModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Rejection Reason *</label>
+          <textarea 
+            [(ngModel)]="rejectReason" 
+            rows="4"
+            placeholder="Enter reason for rejection..."
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeRejectModal()">Cancel</button>
+        <button 
+          class="btn-confirm-reject" 
+          (click)="confirmReject()"
+          [disabled]="!rejectReason.trim() || isRejecting()"
+        >
+          @if (isRejecting()) {
+            <span class="spinner-sm"></span>
+          }
+          Reject
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Schedule Modal -->
+@if (showScheduleModal()) {
+  <div class="modal-overlay" (click)="closeScheduleModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Schedule Content</h2>
+        <button class="btn-close" (click)="closeScheduleModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Schedule Date & Time *</label>
+          <input 
+            type="datetime-local" 
+            [(ngModel)]="scheduleDateTime"
+          >
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeScheduleModal()">Cancel</button>
+        <button 
+          class="btn-confirm-schedule" 
+          (click)="confirmSchedule()"
+          [disabled]="!scheduleDateTime || isScheduling()"
+        >
+          @if (isScheduling()) {
+            <span class="spinner-sm"></span>
+          }
+          Schedule
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Logs Modal -->
+@if (showLogsModal()) {
+  <div class="modal-overlay" (click)="closeLogsModal()">
+    <div class="modal-content logs-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📋 Publish Logs</h2>
+        <button class="btn-close" (click)="closeLogsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        @if (publishLogs().length === 0) {
+          <div class="no-logs">
+            <p>No publish logs yet</p>
+          </div>
+        } @else {
+          <div class="logs-list">
+            @for (log of publishLogs(); track log.id) {
+              <div class="log-item" [class]="getStatusClass(log.status)">
+                <div class="log-header">
+                  <span class="log-channel">
+                    {{ getChannelIcon(log.channel) }} {{ log.channel }}
+                  </span>
+                  <span class="log-status" [class]="getStatusClass(log.status)">
+                    {{ log.status }}
+                  </span>
+                  @if (getSkippedReason(log); as reason) {
+                    <span class="log-skip-reason">({{ reason }})</span>
+                  }
+                  <span class="log-date">{{ formatDate(log.createdAtUtc) }}</span>
+                </div>
+                @if (log.error) {
+                  <div class="log-error">
+                    <strong>Error:</strong> {{ log.error }}
+                  </div>
+                }
+                @if (log.responseJson) {
+                  <details class="log-details">
+                    <summary>Response</summary>
+                    <pre>{{ log.responseJson }}</pre>
+                  </details>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeLogsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Correction Modal -->
+@if (showCorrectionModal()) {
+  <div class="modal-overlay" (click)="closeCorrectionModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📝 Save Correction</h2>
+        <button class="btn-close" (click)="closeCorrectionModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="correction-summary">
+          <p>You are about to save a correction for this published content. This will:</p>
+          <ul>
+            <li>Create a new revision with your current edits</li>
+            <li>Queue the content for republishing to enabled channels</li>
+          </ul>
+        </div>
+        <div class="form-group">
+          <label>Correction Note (optional)</label>
+          <textarea 
+            [(ngModel)]="correctionNote" 
+            rows="3"
+            placeholder="Describe what was corrected..."
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeCorrectionModal()">Cancel</button>
+        <button 
+          class="btn-confirm-correction" 
+          (click)="submitCorrection()"
+          [disabled]="isCorrecting()"
+        >
+          @if (isCorrecting()) {
+            <span class="spinner-sm"></span>
+          }
+          Save & Republish
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Retract Modal -->
+@if (showRetractModal()) {
+  <div class="modal-overlay" (click)="closeRetractModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🚫 Retract Content</h2>
+        <button class="btn-close" (click)="closeRetractModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="retract-warning">
+          <span class="warning-icon">⚠️</span>
+          <p><strong>Warning:</strong> Retracting content will remove it from all published channels. This action is logged and cannot be easily undone.</p>
+        </div>
+        <div class="form-group">
+          <label>Retraction Reason *</label>
+          <textarea 
+            [(ngModel)]="retractReason" 
+            rows="4"
+            placeholder="Why is this content being retracted?"
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeRetractModal()">Cancel</button>
+        <button 
+          class="btn-confirm-retract" 
+          (click)="submitRetract()"
+          [disabled]="!retractReason.trim() || isRetracting()"
+        >
+          @if (isRetracting()) {
+            <span class="spinner-sm"></span>
+          }
+          Retract Content
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Breaking News Modal -->
+@if (showBreakingModal()) {
+  <div class="modal-overlay" (click)="closeBreakingModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🔴 Mark as Breaking News</h2>
+        <button class="btn-close" (click)="closeBreakingModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="breaking-info">
+          <p>Marking content as breaking will fast-track it through the publishing workflow.</p>
+        </div>
+        <div class="form-group">
+          <label>Breaking Note</label>
+          <textarea 
+            [(ngModel)]="breakingNote" 
+            rows="3"
+            placeholder="Why is this breaking news?"
+          ></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Priority</label>
+            <input 
+              type="number" 
+              [(ngModel)]="breakingPriority"
+              min="1"
+              max="1000"
+            >
+            <span class="hint">Higher = more urgent (100 = normal)</span>
+          </div>
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="breakingPushRequired">
+              <span>Push notification required</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeBreakingModal()">Cancel</button>
+        <button 
+          class="btn-confirm-breaking" 
+          (click)="submitMarkBreaking()"
+          [disabled]="isMarkingBreaking()"
+        >
+          @if (isMarkingBreaking()) {
+            <span class="spinner-sm"></span>
+          }
+          Mark as Breaking
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}
+

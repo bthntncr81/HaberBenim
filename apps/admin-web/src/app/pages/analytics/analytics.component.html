@@ -1,0 +1,150 @@
+<div class="analytics-page">
+  <header class="page-header">
+    <h1>📊 Analytics Overview</h1>
+    <p class="subtitle">Publishing performance and content metrics</p>
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-section">
+    <div class="filter-group">
+      <label>From</label>
+      <input type="date" [(ngModel)]="fromDate">
+    </div>
+    <div class="filter-group">
+      <label>To</label>
+      <input type="date" [(ngModel)]="toDate">
+    </div>
+    <button class="btn-load" (click)="loadData()" [disabled]="isLoading()">
+      @if (isLoading()) {
+        <span class="spinner-sm"></span>
+      }
+      Load Data
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading analytics...</p>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (error()) {
+    <div class="error-state">
+      <span class="error-icon">⚠️</span>
+      <p>{{ error() }}</p>
+      <button class="btn-retry" (click)="loadData()">Retry</button>
+    </div>
+  }
+
+  <!-- Data Display -->
+  @if (!isLoading() && !error() && overview()) {
+    <div class="analytics-content">
+      <!-- Summary Cards -->
+      <div class="cards-row">
+        <div class="stat-card primary">
+          <span class="card-icon">📰</span>
+          <div class="card-content">
+            <div class="card-value">{{ overview()!.totalPublished }}</div>
+            <div class="card-label">Total Published</div>
+          </div>
+        </div>
+
+        <div class="stat-card info">
+          <span class="card-icon">📥</span>
+          <div class="card-content">
+            <div class="card-value">{{ overview()!.totalIngested }}</div>
+            <div class="card-label">Total Ingested</div>
+          </div>
+        </div>
+
+        <div class="stat-card warning">
+          <span class="card-icon">⏳</span>
+          <div class="card-content">
+            <div class="card-value">{{ overview()!.totalPending }}</div>
+            <div class="card-label">Pending Approval</div>
+          </div>
+        </div>
+
+        <div class="stat-card success">
+          <span class="card-icon">🔄</span>
+          <div class="card-content">
+            <div class="card-value">{{ overview()!.totalCorrections }}</div>
+            <div class="card-label">Corrections Made</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two Column Layout -->
+      <div class="two-column">
+        <!-- Auto vs Editorial -->
+        <div class="panel">
+          <h3>🤖 Publishing Origin</h3>
+          <div class="origin-stats">
+            @for (key of getOriginKeys(); track key) {
+              <div class="origin-item">
+                <span class="origin-icon">
+                  @if (key === 'Auto') { 🤖 } @else { ✍️ }
+                </span>
+                <span class="origin-label">{{ key }}</span>
+                <span class="origin-value">{{ overview()!.autoVsEditorial[key] }}</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- By Channel -->
+        <div class="panel">
+          <h3>📡 By Channel</h3>
+          <div class="channel-stats">
+            @for (channel of getChannelKeys(); track channel) {
+              <div class="channel-item">
+                <span class="channel-icon">{{ getChannelIcon(channel) }}</span>
+                <span class="channel-label">{{ channel }}</span>
+                <span class="channel-value">{{ overview()!.byChannel[channel] }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Sources -->
+      <div class="panel full-width">
+        <h3>🏆 Top Sources</h3>
+        @if (overview()!.topSources.length === 0) {
+          <p class="no-data">No data available</p>
+        } @else {
+          <table class="sources-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Source</th>
+                <th>Published Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (source of overview()!.topSources; track source.sourceName; let i = $index) {
+                <tr>
+                  <td class="rank">{{ i + 1 }}</td>
+                  <td>{{ source.sourceName }}</td>
+                  <td class="count">{{ source.count }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+
+      <!-- Rejected Count -->
+      @if (overview()!.totalRejected > 0) {
+        <div class="panel rejected-info">
+          <span class="rejected-icon">❌</span>
+          <span>{{ overview()!.totalRejected }} items rejected in this period</span>
+        </div>
+      }
+    </div>
+  }
+</div>
+

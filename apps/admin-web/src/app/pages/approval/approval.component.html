@@ -1,0 +1,197 @@
+<div class="page">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1>Editorial Inbox</h1>
+      <p>Review and approve content for publishing</p>
+    </div>
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-card">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label>Status</label>
+        <select [(ngModel)]="status">
+          @for (opt of statusOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>From Date</label>
+        <input type="datetime-local" [(ngModel)]="fromUtc">
+      </div>
+      
+      <div class="filter-group">
+        <label>To Date</label>
+        <input type="datetime-local" [(ngModel)]="toUtc">
+      </div>
+      
+      <div class="filter-group">
+        <label>Source</label>
+        <select [(ngModel)]="sourceId">
+          <option value="">All Sources</option>
+          @for (source of sources(); track source.id) {
+            <option [value]="source.id">{{ source.name }}</option>
+          }
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label>Keyword</label>
+        <input type="text" [(ngModel)]="keyword" placeholder="Search...">
+      </div>
+      
+      <div class="filter-actions">
+        <button class="btn-search" (click)="onSearch()">🔍 Search</button>
+        <button class="btn-clear" (click)="onClearFilters()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Info -->
+  <div class="results-info">
+    <span>{{ total() }} items found</span>
+    <span class="page-info">Page {{ page() }} of {{ totalPages || 1 }}</span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-container">
+    @if (isLoading()) {
+      <div class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    }
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="col-date">Published</th>
+          <th class="col-source">Source</th>
+          <th class="col-title">Title</th>
+          <th class="col-status">Status</th>
+          <th class="col-decision">Decision</th>
+          <th class="col-scheduled">Scheduled</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of items(); track item.id) {
+          <tr>
+            <td class="col-date">{{ formatDate(item.publishedAtUtc) }}</td>
+            <td class="col-source">
+              <span class="source-badge">{{ item.sourceName }}</span>
+            </td>
+            <td class="col-title">
+              <span class="title-text">{{ truncate(item.title, 60) }}</span>
+              @if (item.hasDraft) {
+                <span class="draft-indicator" title="Has draft">✏️</span>
+              }
+            </td>
+            <td class="col-status">
+              <span class="status-badge" [class]="getStatusClass(item.status)">
+                {{ item.status }}
+              </span>
+            </td>
+            <td class="col-decision">
+              @if (item.decisionType) {
+                <span class="decision-badge" [class]="item.decisionType.toLowerCase()">
+                  {{ item.decisionType }}
+                </span>
+              } @else {
+                <span class="muted">-</span>
+              }
+            </td>
+            <td class="col-scheduled">
+              @if (item.scheduledAtUtc) {
+                <span class="scheduled-time">{{ formatDate(item.scheduledAtUtc) }}</span>
+              } @else {
+                <span class="muted">-</span>
+              }
+            </td>
+            <td class="col-actions">
+              <div class="action-buttons">
+                <button class="btn-open" (click)="openEditor(item)">Open</button>
+                @if (canPublish && (item.status === 'ReadyToPublish' || item.status === 'AutoReady')) {
+                  <button 
+                    class="btn-publish"
+                    (click)="publishNow(item, $event)"
+                    [disabled]="publishingItemId() === item.id"
+                    title="Publish now"
+                  >
+                    @if (publishingItemId() === item.id) {
+                      <span class="spinner-sm"></span>
+                    } @else {
+                      🚀
+                    }
+                  </button>
+                }
+                @if (item.status === 'Scheduled') {
+                  <span class="queued-badge" title="Queued for scheduled time">⏱️</span>
+                }
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr class="empty-row">
+            <td colspan="7">
+              @if (!isLoading()) {
+                <div class="empty-state">
+                  <span class="empty-icon">📭</span>
+                  <p>No items in inbox</p>
+                </div>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <div class="pagination">
+      <button 
+        class="btn-page" 
+        [disabled]="page() <= 1"
+        (click)="onPageChange(page() - 1)"
+      >
+        ← Previous
+      </button>
+      
+      <div class="page-numbers">
+        @for (pageNum of getPageNumbers(); track pageNum) {
+          @if (pageNum === -1) {
+            <span class="ellipsis">...</span>
+          } @else {
+            <button 
+              class="btn-page-num" 
+              [class.active]="pageNum === page()"
+              (click)="onPageChange(pageNum)"
+            >
+              {{ pageNum }}
+            </button>
+          }
+        }
+      </div>
+      
+      <button 
+        class="btn-page" 
+        [disabled]="page() >= totalPages"
+        (click)="onPageChange(page() + 1)"
+      >
+        Next →
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}

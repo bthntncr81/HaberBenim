@@ -1,0 +1,75 @@
+<div class="news-detail-page">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <button class="btn-back" (click)="goBack()">
+        ← Back to Home
+      </button>
+      <div class="brand" (click)="goBack()">
+        <span class="brand-icon">📡</span>
+        <span class="brand-name">Haber Platform</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- Loading State -->
+    @if (isLoading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading article...</p>
+      </div>
+    }
+
+    <!-- Error State -->
+    @if (error()) {
+      <div class="error-state">
+        <span class="error-icon">📰</span>
+        <h2>{{ error() }}</h2>
+        <p>The article you're looking for might have been removed or doesn't exist.</p>
+        <button class="btn-home" (click)="goBack()">Go to Home</button>
+      </div>
+    }
+
+    <!-- Article Content -->
+    @if (article(); as article) {
+      <article class="article">
+        <div class="article-header">
+          <div class="article-meta">
+            @if (article.sourceName) {
+              <span class="source">{{ article.sourceName }}</span>
+            }
+            <span class="date">{{ formatDate(article.publishedAtUtc) }}</span>
+          </div>
+          <h1 class="article-title">{{ article.webTitle }}</h1>
+        </div>
+
+        <div class="article-body">
+          @for (paragraph of formatBody(article.webBody); track $index) {
+            <p>{{ paragraph }}</p>
+          }
+        </div>
+
+        @if (article.canonicalUrl) {
+          <div class="article-source-link">
+            <a [href]="article.canonicalUrl" target="_blank" rel="noopener noreferrer">
+              📎 View original source
+            </a>
+          </div>
+        }
+
+        <div class="article-footer">
+          <button class="btn-back-bottom" (click)="goBack()">
+            ← Back to all articles
+          </button>
+        </div>
+      </article>
+    }
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>© 2024 Haber Platform. All rights reserved.</p>
+  </footer>
+</div>
+

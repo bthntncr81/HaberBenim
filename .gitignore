@@ -1,0 +1,83 @@
+# =================================
+# .NET / C#
+# =================================
+bin/
+obj/
+*.user
+*.userosscache
+*.suo
+*.cache
+*.dll
+*.pdb
+*.exe
+.vs/
+*.rsuser
+*.nupkg
+project.lock.json
+*.nuget.props
+*.nuget.targets
+.dotnet/
+
+# =================================
+# Node / Angular
+# =================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Angular build output
+dist/
+.angular/
+.sass-cache/
+
+# Environment files (keep templates, ignore actual)
+.env
+.env.local
+.env.*.local
+
+# =================================
+# IDE / Editors
+# =================================
+.idea/
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# =================================
+# OS Generated
+# =================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =================================
+# Build & Logs
+# =================================
+logs/
+*.log
+coverage/
+.nyc_output/
+
+# =================================
+# Docker
+# =================================
+docker-compose.override.yml
+
+# =================================
+# Misc
+# =================================
+*.bak
+*.tmp
+*.temp
+

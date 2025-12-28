@@ -1,0 +1,81 @@
+Implement real Source Management UI in Angular admin app:
+apps/admin-web
+
+ASSUMPTIONS
+- JWT auth exists + interceptor attaches token.
+- Routes exist including /sources.
+- Backend endpoints exist:
+  GET/POST/PUT/DELETE /api/v1/sources and POST /api/v1/sources/{id}/toggle-active
+
+GOALS
+- /sources page shows sources from API
+- Admin can add/edit/delete/toggle active
+- Non-admin can only view (read-only)
+- Basic filters and pagination.
+
+A) API SERVICE
+Create src/app/services/sources-api.service.ts
+Methods:
+1692967947214471168-xLfu4WP2KCTxKi0bMkyta3V6yPu67v
+- list(params) => GET /api/v1/sources
+- get(id) => GET /api/v1/sources/{id}
+- create(payload) => POST /api/v1/sources
+- update(id,payload) => PUT /api/v1/sources/{id}
+- delete(id) => DELETE /api/v1/sources/{id}
+- toggleActive(id,isActive) => POST /api/v1/sources/{id}/toggle-active
+
+Use baseUrl from src/app/shared/api.config.ts
+
+B) SOURCES PAGE UI (src/app/pages/sources)
+Replace placeholder with:
+1) Filters row:
+- q (text)
+- type dropdown (All, RSS, X, Manual, GoogleNews)
+- category text (or dropdown if you prefer)
+- isActive dropdown (All/Active/Passive)
+- Search button
+
+2) Table columns:
+Name | Type | Identifier | Url | Category | Trust | Priority | Active | DefaultBehavior | Updated | Actions
+
+3) Actions:
+- Admin only:
+  - Add Source button -> opens modal form
+  - Edit button per row -> opens modal
+  - Delete button -> confirm
+  - Active toggle switch -> calls toggleActive
+- Non-admin:
+  - no actions; just table
+
+4) Modal form (no external UI libs):
+Fields:
+- name
+- type (RSS/X/Manual/GoogleNews)
+- identifier (only when type=X)
+- url (only when type=RSS)
+- category
+- trustLevel (0..100)
+- priority (0..1000)
+- defaultBehavior (Auto/Editorial)
+- isActive (checkbox)
+
+Validation:
+- show inline errors; disable Save when invalid
+- if type=RSS require valid url
+- if type=X require identifier (strip @ if user pasted)
+
+C) ROLE CHECKS
+Use AuthService roles:
+- isAdmin = roles includes "Admin"
+
+D) ROUTING/MENU
+Ensure sidebar shows "Sources" to all logged-in users, but page is read-only for non-admin.
+
+E) UX
+- On save/delete/toggle show a simple alert (or inline message)
+- Refresh list after changes
+- Disable buttons while saving
+
+OUTPUT
+- Files changed
+- Manual test steps
