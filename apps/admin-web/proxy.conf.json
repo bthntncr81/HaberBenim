@@ -1,0 +1,8 @@
+{
+  "/media": {
+    "target": "http://localhost:5078",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
+

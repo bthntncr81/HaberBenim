@@ -37,13 +37,16 @@ public class AnalyticsController : ControllerBase
                 && c.PublishedAtUtc >= from
                 && c.PublishedAtUtc <= to);
 
-        // By channel - count successful publish logs (distinct by contentId+versionNo+channel)
+        // By channel - count successful publish logs (distinct by contentId+versionNo per channel)
+        // NOTE: Avoid EF generating invalid COUNT(DISTINCT *) SQL on PostgreSQL.
         var channelCounts = await _db.ChannelPublishLogs
             .Where(l => l.Status == ChannelPublishStatuses.Success
                 && l.CreatedAtUtc >= from
                 && l.CreatedAtUtc <= to)
-            .GroupBy(l => l.Channel)
-            .Select(g => new { Channel = g.Key, Count = g.Select(l => new { l.ContentItemId, l.VersionNo }).Distinct().Count() })
+            .GroupBy(l => new { l.Channel, l.ContentItemId, l.VersionNo })
+            .Select(g => g.Key.Channel)
+            .GroupBy(channel => channel)
+            .Select(g => new { Channel = g.Key, Count = g.Count() })
             .ToListAsync();
 
         var byChannel = new Dictionary<string, int>
@@ -88,15 +91,26 @@ public class AnalyticsController : ControllerBase
         }
 
         // Top sources
-        var topSources = await _db.ContentItems
+        // NOTE: Use an anonymous projection for ordering; some EF/Npgsql combos struggle ordering by record properties.
+        var topSourcesRaw = await _db.ContentItems
             .Where(c => c.Status == ContentStatuses.Published
                 && c.PublishedAtUtc >= from
                 && c.PublishedAtUtc <= to)
-            .GroupBy(c => c.Source.Name)
-            .Select(g => new TopSourceDto(g.Key, g.Count()))
-            .OrderByDescending(s => s.Count)
+            .Join(
+                _db.Sources,
+                c => c.SourceId,
+                s => s.Id,
+                (c, s) => new { SourceName = s.Name }
+            )
+            .GroupBy(x => x.SourceName)
+            .Select(g => new { SourceName = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
             .Take(10)
             .ToListAsync();
+
+        var topSources = topSourcesRaw
+            .Select(x => new TopSourceDto(x.SourceName, x.Count))
+            .ToList();
 
         // Additional metrics
         var totalIngested = await _db.ContentItems
@@ -140,17 +154,18 @@ public class AnalyticsController : ControllerBase
         var from = fromUtc ?? DateTime.UtcNow.AddDays(-30);
         var to = toUtc ?? DateTime.UtcNow;
 
-        var trends = await _db.ContentItems
+        var trendRaw = await _db.ContentItems
             .Where(c => c.Status == ContentStatuses.Published
                 && c.PublishedAtUtc >= from
                 && c.PublishedAtUtc <= to)
             .GroupBy(c => c.PublishedAtUtc.Date)
-            .Select(g => new DailyTrendDto(
-                DateOnly.FromDateTime(g.Key),
-                g.Count()
-            ))
+            .Select(g => new { Date = g.Key, Count = g.Count() })
             .OrderBy(t => t.Date)
             .ToListAsync();
+
+        var trends = trendRaw
+            .Select(t => new DailyTrendDto(DateOnly.FromDateTime(t.Date), t.Count))
+            .ToList();
 
         return Ok(trends);
     }

@@ -7,6 +7,7 @@ export interface PublicArticleListItem {
   canonicalUrl: string | null;
   sourceName: string | null;
   categoryOrGroup: string | null;
+  primaryImageUrl: string | null;
 }
 
 export interface PublicArticle {
@@ -19,6 +20,7 @@ export interface PublicArticle {
   canonicalUrl: string | null;
   sourceName: string | null;
   categoryOrGroup: string | null;
+  primaryImageUrl: string | null;
 }
 
 export interface PublicArticleListResponse {

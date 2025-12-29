@@ -1,0 +1,249 @@
+Haber Platform Admin Panel – Sayfa Sayfa Özellik/Fonksiyon Dokümanı
+Aşağıdaki doküman apps/admin-web (Angular Admin UI) uygulamasındaki tüm sayfaları ve her sayfada bulunan fonksiyonların ne yaptığını tek tek açıklar.
+Genel Çalışma Mantığı (Tüm Sayfalar)
+* Kimlik doğrulama: Giriş yapınca JWT/oturum bilgisi saklanır; sayfalara erişim authGuard + roleGuard ile korunur.
+* Rol sistemi:
+* Admin: Tam yetkili (ayarlar, kurallar, audit, kaynak yönetimi CRUD, X entegrasyonu vb.)
+* Editor: Editoryal iş akışı + yayın süreçleri (bazı admin sayfaları hariç)
+* SocialMedia: Feed/Approval/Sources gibi okuma/işlem sayfalarına sınırlı erişim
+* Sidebar menü: Kullanıcının rollerine göre sadece yetkili olduğu sayfalar görünür.
+* UI kalıpları:
+* Liste ekranlarında genelde filtre + sayfalama + yükleniyor state + hata/toast bulunur.
+* Kritik aksiyonlarda (silme, disconnect vb.) confirm sorulur.
+* Başarılı/başarısız aksiyonlarda toast/alert mesajı gösterilir.
+
+Rol & Sayfa Erişim Tablosu
+* Login: Herkes (giriş ekranı)
+* Feed: Admin / Editor / SocialMedia
+* Approval: Admin / Editor / SocialMedia
+* Editor: Admin / Editor / SocialMedia
+* Publishing: Admin / Editor
+* Sources: Admin / Editor / SocialMedia (Admin dışı read-only)
+* Rules: Admin
+* Analytics: Admin / Editor
+* Reports: Admin
+* Breaking: Admin / Editor
+* Alerts: Admin / Editor (Acknowledge sadece Admin)
+* Audit: Admin
+* X Integration: Admin
+
+1) Login (/login)
+Amaç: Admin panele giriş.
+* Email/Password alanları: Kullanıcı giriş bilgilerini alır.
+* Sign In:
+* AuthService.login(email, password) çağırır.
+* Başarılıysa returnUrl varsa oraya, yoksa /feed sayfasına yönlendirir.
+* Hata yönetimi:
+* 401 → “Invalid email or password”
+* 0 → “Unable to connect to server”
+* Diğer → API’den gelen mesaj veya genel hata.
+
+2) Feed (/feed)
+Amaç: Sisteme ingest edilen içerikleri (Content/Feed items) listelemek ve incelemek.
+* Filtreler:
+* fromUtc / toUtc: Tarih aralığı
+* sourceId: Kaynak seçimi
+* keyword: Metin araması
+* status: İçerik statüsü (örn. PendingApproval vb.)
+* decisionType: Rule engine karar tipi (örn. AutoReady, RequireApproval vb.)
+* Listeleme / sayfalama:
+* page + pageSize ile sayfa bazlı getirir.
+* Detay modalı (View item):
+* Bir item’a tıklanınca getFeedItem(id) ile detay çekilir ve modal açılır.
+* RSS Ingestion çalıştırma (Run RSS ingestion):
+* runRssIngestion() ile backend ingest tetiklenir.
+* Sonuçta “kaç kayıt eklendi / kaç duplicate” gibi özet toast basar ve listeyi yeniler.
+* Recompute (Rule yeniden değerlendirme)
+* Recompute modalı açılır; tarih aralığı/source/status seçilip rulesApi.recompute(payload) çalıştırılır.
+* Sonuç: “processed/changed” sayıları ve decisionType kırılımı gösterilir.
+
+3) Approval (/approval)
+Amaç: Editoryal onay bekleyen içerik havuzunu yönetmek.
+* Filtreler:
+* status (default: PendingApproval)
+* fromUtc / toUtc
+* sourceId
+* keyword
+* Inbox listeleme: editorialApi.getInbox(params)
+* Editor’a geçiş:
+* Satıra tıklayınca /editor/:id açılır.
+* Publish Now (Queue):
+* Sadece Admin/Editor için aktif (canPublish).
+* publishApi.enqueue(item.id) ile publish job kuyruğa alınır.
+* “Already queued” durumunu da ayrı mesajla gösterir.
+
+4) Editor (/editor/:id)
+Amaç: İçeriğin tüm kanallar için taslağını düzenlemek, onaylamak, planlamak, yayınlamak ve yayın sonrası düzeltme/geri çekme gibi aksiyonları yönetmek.
+Ana Bölümler
+* Tab’lar: x / web / mobile / push / meta (aktif tab state’i activeTab)
+* Draft alanları:
+* X: xText, hashtagsCsv, mentionsCsv
+* Web: webTitle, webBody
+* Mobile: mobileSummary
+* Push: pushTitle, pushBody
+* Editorial note: editorialNote
+* Channel toggles: publishToWeb, publishToMobile, publishToX
+* Karakter kontrolü (X):
+* xCharCount ve xCharWarning ile 280 sınırı kontrol edilir.
+Aksiyonlar
+* Save Draft:
+* editorialApi.saveDraft(id, payload) → versiyon numarası ile toast.
+* Approve (Admin/Editor):
+* editorialApi.approve(id) → içerik “approved & queued” gibi ilerler.
+* Reject (Admin/Editor):
+* Reject modal → rejectReason zorunlu → editorialApi.reject(id, reason)
+* Schedule (Admin/Editor):
+* Schedule modal → UTC’ye çevrilir → editorialApi.schedule(id, scheduledUtc)
+* Enqueue Publish (Admin/Editor, uygun statülerde):
+* publishApi.enqueue(id) → job kuyruğa alınır.
+* Publish logs görüntüleme:
+* Logs modal → publishApi.getLogs(id) ile kanal bazlı loglar gelir (Web/Mobile/X vb.).
+* Correction (Yayın sonrası düzeltme):
+* Correction modal → editorialApi.correct(id, payload)
+* Başarılıysa yeni versiyon oluşur ve gerekirse republish kuyruğa alınır.
+* Retract (Yayın geri çekme):
+* Retract modal → retractReason zorunlu → editorialApi.retract(id, reason)
+* Mark Breaking (Son dakika olarak işaretleme):
+* Breaking modal → breakingApi.mark(id, {note, priority, pushRequired})
+
+5) Publishing (/publishing)
+Amaç: Publish job’larını ve kanal publish loglarını takip etmek.
+* Filtreler:
+* status
+* fromUtc / toUtc
+* Liste: publishApi.listJobs(params) (sayfalı)
+* Run Due Jobs:
+* publishApi.runDue() → “kaç job işlendi” toast.
+* Logs:
+* Seçilen job’ın contentItemId ile publishApi.getLogs(contentItemId) çağrılır, modalda gösterilir.
+* Not: Sayfa Admin/Editor’a açık; bazı “run due” gibi operasyonlar UI’da role göre kısıtlanmış olabilir.
+
+6) Sources (/sources)
+Amaç: Kaynak yönetimi ekranı (RSS / X / Manual / GoogleNews).
+Erişim: Admin/Editor/SocialMedia görebilir; sadece Admin düzenler.
+Liste & Filtreler
+* q: name/identifier araması
+* type: kaynak tipi
+* category
+* isActive: active/passive
+* Sayfalama: page/pageSize
+X özel durum bilgisi (state)
+* Liste yüklenince type === 'X' olanlar için ayrıca:
+* sourceApi.getXState(sourceId) çağrılır, satıra X state bilgisi eklenir.
+Admin aksiyonları
+* Add Source: modal açar, form validation uygular, sourceApi.create(payload)
+* Edit Source: detay çeker sourceApi.get(id) → modal → sourceApi.update(id, payload)
+* Delete Source: confirm → sourceApi.delete(id)
+* Toggle Active: sourceApi.toggleActive(id, !isActive)
+Form doğrulamaları (UI)
+* Name: 2–120
+* Type zorunlu
+* RSS ise URL zorunlu + http/https
+* X ise identifier zorunlu; @ temizlenir; boşluk/@ içeremez
+* Trust/Priority aralık kontrolü
+
+7) Rules (/rules) (Admin only)
+Amaç: Rule engine kurallarını yönetmek (otomatik karar/route).
+* Listeleme: rulesApi.listRules()
+* Yeni kural / Edit modalı:
+* name, isEnabled, priority
+* decisionType (RequireApproval / AutoReady vb.)
+* minTrustLevel
+* keywordsIncludeCsv, keywordsExcludeCsv
+* Kaynak seçimi (multi-select) → sourceIdsCsv
+* groupIdsCsv (varsa)
+* Save:
+* Create → rulesApi.createRule(payload)
+* Update → rulesApi.updateRule(id, payload)
+* Enable/Disable toggle: rule güncellenerek isEnabled terslenir.
+* Delete: confirm → rulesApi.deleteRule(id)
+
+8) Analytics (/analytics)
+Amaç: Sistem genel istatistik/özet dashboard.
+* Default: Son 7 gün
+* Tarih aralığı: from/to seçilir, UTC’ye çevrilir.
+* Load: analyticsApi.getOverview({fromUtc,toUtc})
+* Görünümler:
+* Kanal kırılımı (Web/Mobile/X)
+* Auto vs Editorial kırılımı vb.
+* Not: Bu sayfa “okuma/raporlama” amaçlıdır; aksiyon yok.
+
+9) Reports (/reports) (Admin only)
+Amaç: Günlük rapor üretmek ve indirmek.
+* Default:
+* Selected date: dün
+* Run list range: son 30 gün
+* Runs list: reportsApi.listRuns({from,to})
+* Generate daily: reportsApi.generateDaily(selectedDate)
+* Download daily (Excel):
+* reportsApi.downloadDaily(date) → tarayıcıda .xlsx indirir
+* 404 ise “Report not found for this date”
+
+10) Breaking (/breaking)
+Amaç: Son dakika iş akışını yönetmek.
+* Inbox: breakingApi.inbox({status,page,pageSize})
+* Open editor: /editor/:id
+* Publish Now:
+* breakingApi.publishNow(id) → publish job oluşturur
+* Mark Breaking modal:
+* contentId, note, priority, pushRequired
+* breakingApi.mark(contentId, payload)
+* Sayfalama: next/prev
+* Öncelik sınıfı: priority’e göre low/normal/high görsel sınıf
+
+11) Alerts (/alerts)
+Amaç: Sistem uyarılarını görüntülemek ve (Admin ise) acknowledge etmek.
+* Filtreler:
+* severity (Critical/Warn/Info)
+* type (IngestionDown, Retract vb.)
+* acknowledged (true/false)
+* from/to tarih
+* Liste: alertsApi.list(params)
+* Detail modal: alert metaJson varsa parse edilip gösterilir.
+* Acknowledge (Admin only):
+* alertsApi.ack(alert.id) → acknowledged yapar.
+
+12) Audit (/audit) (Admin only)
+Amaç: API çağrı loglarını denetlemek.
+* Default: Son 24 saat
+* Filtreler:
+* from/to date
+* userEmail
+* path (örn. /api/v1/editorial)
+* status code (örn. 200/401/500)
+* Liste: auditApi.list(params) (sayfalı, pageSize default 50)
+* Görsel sınıflandırma:
+* HTTP method class (GET/POST…)
+* Status class (2xx/4xx/5xx)
+* Duration class (fast/medium/slow)
+
+13) X Integration (/integrations/x) (Admin only)
+Amaç: X (Twitter) entegrasyon ayarlarını girmek, test etmek, bağlantıları yönetmek.
+13.1 X API Credentials (Settings)
+Kaydedilen ana alanlar:
+* API Key (X_API_KEY)
+* API Secret Key (X_API_SECRET_KEY)
+* Bearer Token (X_BEARER_TOKEN) → okuma/ingestion tarafında kullanılır
+* Access Token (X_ACCESS_TOKEN)
+* Access Token Secret (X_ACCESS_TOKEN_SECRET) → OAuth 1.0a ile tweet atmada kullanılır
+* Opsiyonel OAuth2 PKCE: X_CLIENT_ID, X_CLIENT_SECRET, X_REDIRECT_URI
+Save Settings:
+* PUT /api/v1/settings/batch ile tüm key’ler toplu kaydedilir.
+13.2 API Bağlantı Testleri
+* Config status: GET /api/v1/integrations/x/config-status
+* OAuth1 tam mı, Bearer Token var mı, öneriler listesi.
+* OAuth 1.0a Test: GET /api/v1/integrations/x/test-oauth1
+* Credential’lar ile users/me test eder, bağlı hesabı gösterir.
+* Bearer Token Test: GET /api/v1/integrations/x/test-bearer
+* Basit bir arama ile token geçerli mi kontrol eder.
+* Test Tweet: POST /api/v1/integrations/x/test-post
+* Girilen metinle gerçek tweet atmayı dener, tweet linki döner.
+13.3 OAuth2 PKCE Connect (Alternatif Bağlantı)
+* Connect to X:
+* GET /api/v1/integrations/x/connect → authorizeUrl alır, popup açar.
+* Popup sonrası UI 2sn aralıkla status poll eder (2 dk timeout).
+* Connected Accounts tablosu:
+* GET /api/v1/integrations/x/status ile gelir.
+* Set Default: POST /api/v1/integrations/x/set-default/{id}
+* Disconnect: POST /api/v1/integrations/x/disconnect/{id}
+> X özellikleri için temel referans: X Developer Platform genel dokümanı 1.

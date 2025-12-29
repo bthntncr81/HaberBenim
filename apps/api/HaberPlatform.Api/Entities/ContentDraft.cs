@@ -26,7 +26,23 @@ public class ContentDraft
     public bool PublishToWeb { get; set; } = true;
     public bool PublishToMobile { get; set; } = true;
     public bool PublishToX { get; set; } = true;
+    public bool PublishToInstagram { get; set; } = true;
     
+    /// <summary>
+    /// Optional override for Instagram caption (max 2200 chars)
+    /// </summary>
+    public string? InstagramCaptionOverride { get; set; }
+    
+    // Media/Image settings
+    /// <summary>Whether to auto-generate an AI image if no media found</summary>
+    public bool AutoGenerateImageIfMissing { get; set; } = true;
+    
+    /// <summary>Optional override prompt for AI image generation</summary>
+    public string? ImagePromptOverride { get; set; }
+    
+    /// <summary>Style preset for AI generation: "news-illustration" default</summary>
+    public string? ImageStylePreset { get; set; } = "news-illustration";
+
     // Metadata
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
     public Guid? UpdatedByUserId { get; set; }

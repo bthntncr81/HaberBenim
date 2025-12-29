@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using HaberPlatform.Api.Data;
 using HaberPlatform.Api.Entities;
+using HaberPlatform.Api.Services.Media;
 using HaberPlatform.Api.Utils;
 
 namespace HaberPlatform.Api.Services.Publishing;
@@ -12,13 +13,18 @@ namespace HaberPlatform.Api.Services.Publishing;
 public class WebPublisher : IChannelPublisher
 {
     private readonly AppDbContext _db;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<WebPublisher> _logger;
 
     public string ChannelName => PublishChannels.Web;
 
-    public WebPublisher(AppDbContext db, ILogger<WebPublisher> logger)
+    public WebPublisher(
+        AppDbContext db, 
+        IServiceProvider serviceProvider,
+        ILogger<WebPublisher> logger)
     {
         _db = db;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -35,6 +41,25 @@ public class WebPublisher : IChannelPublisher
             // Build source attribution for compliance
             var attribution = BuildSourceAttribution(item.Source);
 
+            // Get primary image URL
+            string? primaryImageUrl = null;
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var mediaPipeline = scope.ServiceProvider.GetRequiredService<MediaPipelineService>();
+                
+                // Try to ensure primary image exists
+                var primaryImage = await mediaPipeline.EnsurePrimaryImageAsync(item.Id, ct);
+                if (primaryImage != null)
+                {
+                    primaryImageUrl = mediaPipeline.GetPublicUrl(primaryImage.StoragePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get primary image for content {ContentId}", item.Id);
+            }
+
             var requestPayload = new
             {
                 contentItemId = item.Id,
@@ -44,7 +69,8 @@ public class WebPublisher : IChannelPublisher
                 sourceName = item.Source?.Name,
                 categoryOrGroup = item.Source?.Group,
                 slug,
-                sourceAttribution = attribution
+                sourceAttribution = attribution,
+                primaryImageUrl
             };
 
             var requestJson = JsonSerializer.Serialize(requestPayload);
@@ -63,6 +89,7 @@ public class WebPublisher : IChannelPublisher
                 existing.Slug = slug;
                 existing.Path = SlugHelper.GeneratePath(existing.Id, slug);
                 existing.SourceAttributionText = attribution;
+                existing.PrimaryImageUrl = primaryImageUrl;
                 existing.PublishedAtUtc = DateTime.UtcNow;
             }
             else
@@ -80,6 +107,7 @@ public class WebPublisher : IChannelPublisher
                     Slug = slug,
                     Path = SlugHelper.GeneratePath(id, slug),
                     SourceAttributionText = attribution,
+                    PrimaryImageUrl = primaryImageUrl,
                     PublishedAtUtc = DateTime.UtcNow
                 };
                 _db.PublishedContents.Add(published);
@@ -93,10 +121,12 @@ public class WebPublisher : IChannelPublisher
                 publishedContentId = existing.Id,
                 slug = existing.Slug,
                 path = existing.Path,
+                primaryImageUrl = existing.PrimaryImageUrl,
                 publishedAt = existing.PublishedAtUtc
             };
 
-            _logger.LogInformation("Published content {ContentId} to Web with path {Path}", item.Id, existing.Path);
+            _logger.LogInformation("Published content {ContentId} to Web with path {Path}, image={HasImage}", 
+                item.Id, existing.Path, existing.PrimaryImageUrl != null);
 
             return PublishResult.Succeeded(requestJson, JsonSerializer.Serialize(responsePayload));
         }

@@ -3,11 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EditorialApiService } from '../../services/editorial-api.service';
+import { EditorialMediaApiService } from '../../services/editorial-media-api.service';
 import { PublishApiService } from '../../services/publish-api.service';
 import { BreakingApiService } from '../../services/breaking-api.service';
 import { AuthService } from '../../services/auth.service';
 import { EditorialItem, SaveDraftRequest, CorrectionRequest } from '../../shared/editorial.models';
 import { ChannelPublishLog } from '../../shared/publish.models';
+import { MediaAsset, MediaOriginLabels, MediaOriginColors, GenerateImageRequest } from '../../shared/media.models';
 
 type TabType = 'x' | 'web' | 'mobile' | 'push' | 'meta';
 
@@ -22,6 +24,7 @@ export class EditorComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private editorialApi = inject(EditorialApiService);
+  private mediaApi = inject(EditorialMediaApiService);
   private publishApi = inject(PublishApiService);
   private breakingApi = inject(BreakingApiService);
   private authService = inject(AuthService);
@@ -30,6 +33,14 @@ export class EditorComponent implements OnInit {
   item = signal<EditorialItem | null>(null);
   contentId = signal<string>('');
   publishLogs = signal<ChannelPublishLog[]>([]);
+  
+  // Media
+  mediaAssets = signal<MediaAsset[]>([]);
+  isLoadingMedia = signal(false);
+  isRefreshingMedia = signal(false);
+  isGeneratingMedia = signal(false);
+  isDeletingMedia = signal<string | null>(null); // asset id being deleted
+  isSettingPrimary = signal<string | null>(null); // asset id being set as primary
 
   // UI State
   isLoading = signal(true);
@@ -50,6 +61,7 @@ export class EditorComponent implements OnInit {
   showCorrectionModal = signal(false);
   showRetractModal = signal(false);
   showBreakingModal = signal(false);
+  showAIGenerateModal = signal(false);
   rejectReason = '';
   scheduleDateTime = '';
   correctionNote = '';
@@ -59,6 +71,11 @@ export class EditorComponent implements OnInit {
   breakingNote = '';
   breakingPriority = 100;
   breakingPushRequired = true;
+
+  // AI Generate fields
+  aiPromptOverride = '';
+  aiStylePreset = 'news-illustration';
+  aiForce = false;
 
   // Toast
   toastMessage = signal('');
@@ -79,7 +96,10 @@ export class EditorComponent implements OnInit {
     // Channel toggles
     publishToWeb: true,
     publishToMobile: true,
-    publishToX: true
+    publishToX: true,
+    publishToInstagram: true,
+    // Instagram
+    instagramCaptionOverride: ''
   };
 
   get canApproveRejectSchedule(): boolean {
@@ -134,11 +154,29 @@ export class EditorComponent implements OnInit {
     return this.xCharCount > 280;
   }
 
+  // Media helpers
+  get primaryMedia(): MediaAsset | null {
+    return this.mediaAssets().find(a => a.isPrimary) || this.mediaAssets()[0] || null;
+  }
+
+  get hasMedia(): boolean {
+    return this.mediaAssets().length > 0;
+  }
+
+  getOriginLabel(origin: string): string {
+    return MediaOriginLabels[origin] || origin;
+  }
+
+  getOriginColor(origin: string): string {
+    return MediaOriginColors[origin] || '#6b7280';
+  }
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.contentId.set(id);
       this.loadItem(id);
+      this.loadMedia(id);
     }
   }
 
@@ -158,6 +196,20 @@ export class EditorComponent implements OnInit {
     });
   }
 
+  loadMedia(id: string): void {
+    this.isLoadingMedia.set(true);
+    this.mediaApi.list(id).subscribe({
+      next: (assets) => {
+        this.mediaAssets.set(assets);
+        this.isLoadingMedia.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load media', err);
+        this.isLoadingMedia.set(false);
+      }
+    });
+  }
+
   populateDraft(item: EditorialItem): void {
     if (item.draft) {
       this.draft = {
@@ -173,7 +225,10 @@ export class EditorComponent implements OnInit {
         // Channel toggles
         publishToWeb: item.draft.publishToWeb ?? true,
         publishToMobile: item.draft.publishToMobile ?? true,
-        publishToX: item.draft.publishToX ?? true
+        publishToX: item.draft.publishToX ?? true,
+        publishToInstagram: item.draft.publishToInstagram ?? true,
+        // Instagram
+        instagramCaptionOverride: item.draft.instagramCaptionOverride || ''
       };
     } else {
       // Use defaults from content item
@@ -190,7 +245,9 @@ export class EditorComponent implements OnInit {
         // All channels enabled by default
         publishToWeb: true,
         publishToMobile: true,
-        publishToX: true
+        publishToX: true,
+        publishToInstagram: true,
+        instagramCaptionOverride: ''
       };
     }
   }
@@ -217,7 +274,10 @@ export class EditorComponent implements OnInit {
       // Channel toggles
       publishToWeb: this.draft.publishToWeb,
       publishToMobile: this.draft.publishToMobile,
-      publishToX: this.draft.publishToX
+      publishToX: this.draft.publishToX,
+      publishToInstagram: this.draft.publishToInstagram,
+      // Instagram
+      instagramCaptionOverride: this.draft.instagramCaptionOverride || null
     };
 
     this.editorialApi.saveDraft(this.contentId(), payload).subscribe({
@@ -375,6 +435,8 @@ export class EditorComponent implements OnInit {
       publishToWeb: this.draft.publishToWeb,
       publishToMobile: this.draft.publishToMobile,
       publishToX: this.draft.publishToX,
+      publishToInstagram: this.draft.publishToInstagram,
+      instagramCaptionOverride: this.draft.instagramCaptionOverride || null,
       correctionNote: this.correctionNote || undefined
     };
 
@@ -534,6 +596,118 @@ export class EditorComponent implements OnInit {
       }
     }
     return 'Skipped';
+  }
+
+  // Media Actions
+  refreshMediaFromSource(): void {
+    if (this.isRefreshingMedia()) return;
+
+    this.isRefreshingMedia.set(true);
+    this.mediaApi.refreshFromSource(this.contentId()).subscribe({
+      next: (response) => {
+        this.isRefreshingMedia.set(false);
+        if (response.success) {
+          this.showToastMessage('Kaynak görseli başarıyla çekildi', 'success');
+          this.loadMedia(this.contentId());
+        } else {
+          this.showToastMessage(response.message || 'Kaynak görseli bulunamadı', 'error');
+        }
+      },
+      error: (err) => {
+        this.isRefreshingMedia.set(false);
+        this.showToastMessage('Görsel çekilemedi', 'error');
+      }
+    });
+  }
+
+  openAIGenerateModal(): void {
+    this.aiPromptOverride = '';
+    this.aiStylePreset = 'news-illustration';
+    this.aiForce = false;
+    this.showAIGenerateModal.set(true);
+  }
+
+  closeAIGenerateModal(): void {
+    this.showAIGenerateModal.set(false);
+  }
+
+  submitAIGenerate(): void {
+    if (this.isGeneratingMedia()) return;
+
+    this.isGeneratingMedia.set(true);
+
+    const request: GenerateImageRequest = {
+      force: this.aiForce
+    };
+    if (this.aiPromptOverride.trim()) {
+      request.promptOverride = this.aiPromptOverride.trim();
+    }
+    if (this.aiStylePreset) {
+      request.stylePreset = this.aiStylePreset;
+    }
+
+    this.mediaApi.generate(this.contentId(), request).subscribe({
+      next: (result) => {
+        this.isGeneratingMedia.set(false);
+        this.showAIGenerateModal.set(false);
+        
+        if (result.success) {
+          this.showToastMessage(result.message || 'AI görsel başarıyla oluşturuldu', 'success');
+          this.loadMedia(this.contentId());
+        } else {
+          this.showToastMessage(result.error || result.message || 'AI görsel oluşturulamadı', 'error');
+        }
+      },
+      error: (err) => {
+        this.isGeneratingMedia.set(false);
+        const errorMsg = err.error?.message || err.error?.error || 'AI görsel oluşturulamadı';
+        this.showToastMessage(errorMsg, 'error');
+      }
+    });
+  }
+
+  setPrimaryMedia(assetId: string): void {
+    if (this.isSettingPrimary()) return;
+
+    this.isSettingPrimary.set(assetId);
+    this.mediaApi.setPrimary(this.contentId(), assetId).subscribe({
+      next: () => {
+        this.isSettingPrimary.set(null);
+        this.showToastMessage('Ana görsel güncellendi', 'success');
+        this.loadMedia(this.contentId());
+      },
+      error: (err) => {
+        this.isSettingPrimary.set(null);
+        this.showToastMessage('Ana görsel güncellenemedi', 'error');
+      }
+    });
+  }
+
+  deleteMedia(assetId: string): void {
+    if (this.isDeletingMedia()) return;
+
+    if (!confirm('Bu görseli silmek istediğinizden emin misiniz?')) {
+      return;
+    }
+
+    this.isDeletingMedia.set(assetId);
+    this.mediaApi.delete(this.contentId(), assetId).subscribe({
+      next: () => {
+        this.isDeletingMedia.set(null);
+        this.showToastMessage('Görsel silindi', 'success');
+        this.loadMedia(this.contentId());
+      },
+      error: (err) => {
+        this.isDeletingMedia.set(null);
+        this.showToastMessage('Görsel silinemedi', 'error');
+      }
+    });
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
   private showToastMessage(message: string, type: 'success' | 'error'): void {

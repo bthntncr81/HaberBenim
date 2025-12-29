@@ -127,6 +127,8 @@ public class EditorialService
                 item.Draft.PublishToWeb,
                 item.Draft.PublishToMobile,
                 item.Draft.PublishToX,
+                item.Draft.PublishToInstagram,
+                item.Draft.InstagramCaptionOverride,
                 item.Draft.UpdatedAtUtc,
                 item.Draft.UpdatedByUserId
             ) : null,
@@ -181,6 +183,10 @@ public class EditorialService
         if (request.PublishToWeb.HasValue) item.Draft.PublishToWeb = request.PublishToWeb.Value;
         if (request.PublishToMobile.HasValue) item.Draft.PublishToMobile = request.PublishToMobile.Value;
         if (request.PublishToX.HasValue) item.Draft.PublishToX = request.PublishToX.Value;
+        if (request.PublishToInstagram.HasValue) item.Draft.PublishToInstagram = request.PublishToInstagram.Value;
+        
+        // Instagram caption override
+        item.Draft.InstagramCaptionOverride = request.InstagramCaptionOverride;
         
         item.Draft.UpdatedAtUtc = DateTime.UtcNow;
         item.Draft.UpdatedByUserId = userId;
@@ -217,6 +223,8 @@ public class EditorialService
                 item.Draft.PublishToWeb,
                 item.Draft.PublishToMobile,
                 item.Draft.PublishToX,
+                item.Draft.PublishToInstagram,
+                item.Draft.InstagramCaptionOverride,
                 item.Draft.UpdatedAtUtc,
                 item.Draft.UpdatedByUserId
             ),
@@ -365,6 +373,10 @@ public class EditorialService
         if (request.PublishToWeb.HasValue) item.Draft.PublishToWeb = request.PublishToWeb.Value;
         if (request.PublishToMobile.HasValue) item.Draft.PublishToMobile = request.PublishToMobile.Value;
         if (request.PublishToX.HasValue) item.Draft.PublishToX = request.PublishToX.Value;
+        if (request.PublishToInstagram.HasValue) item.Draft.PublishToInstagram = request.PublishToInstagram.Value;
+        
+        // Instagram caption override
+        if (request.InstagramCaptionOverride != null) item.Draft.InstagramCaptionOverride = request.InstagramCaptionOverride;
         
         item.Draft.UpdatedAtUtc = DateTime.UtcNow;
         item.Draft.UpdatedByUserId = userId;
@@ -425,6 +437,7 @@ public class EditorialService
             PublishToWeb = true,
             PublishToMobile = true,
             PublishToX = true,
+            PublishToInstagram = true,
             UpdatedAtUtc = DateTime.UtcNow
         };
     }
@@ -463,7 +476,9 @@ public class EditorialService
                 MentionsCsv = draft.MentionsCsv,
                 PublishToWeb = draft.PublishToWeb,
                 PublishToMobile = draft.PublishToMobile,
-                PublishToX = draft.PublishToX
+                PublishToX = draft.PublishToX,
+                PublishToInstagram = draft.PublishToInstagram,
+                InstagramCaptionOverride = draft.InstagramCaptionOverride
             } : null
         };
 

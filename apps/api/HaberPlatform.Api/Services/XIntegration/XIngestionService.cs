@@ -276,6 +276,7 @@ public class XIngestionService
         var publishedAt = tweet.CreatedAt ?? DateTime.UtcNow;
         var contentItem = new ContentItem
         {
+            Id = Guid.NewGuid(),
             ExternalId = externalId,
             SourceId = source.Id,
             Title = ExtractTitle(tweet.Text),
@@ -290,6 +291,24 @@ public class XIngestionService
         };
 
         _db.ContentItems.Add(contentItem);
+
+        // Ensure draft exists (publishing pipeline expects it)
+        _db.ContentDrafts.Add(new ContentDraft
+        {
+            Id = Guid.NewGuid(),
+            ContentItemId = contentItem.Id,
+            XText = tweet.Text.Length <= 280 ? tweet.Text : tweet.Text[..280],
+            WebTitle = contentItem.Title,
+            WebBody = contentItem.BodyText,
+            MobileSummary = (contentItem.Summary ?? contentItem.BodyText) is { Length: > 200 } s ? s[..200] : (contentItem.Summary ?? contentItem.BodyText),
+            PushTitle = contentItem.Title.Length <= 100 ? contentItem.Title : contentItem.Title[..100],
+            PushBody = (contentItem.Summary ?? contentItem.BodyText) is { Length: > 200 } p ? p[..200] : (contentItem.Summary ?? contentItem.BodyText),
+            // Conservative defaults: publish Web only unless explicitly enabled later in editorial UI
+            PublishToWeb = true,
+            PublishToMobile = false,
+            PublishToX = false,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
 
         // Create duplicate reference if needed
         if (duplicateOf != null)

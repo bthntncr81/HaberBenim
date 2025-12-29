@@ -24,6 +24,10 @@ public class AppDbContext : DbContext
     public DbSet<ContentDraft> ContentDrafts => Set<ContentDraft>();
     public DbSet<ContentRevision> ContentRevisions => Set<ContentRevision>();
     
+    // Media Assets (Sprint 10)
+    public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
+    public DbSet<ContentMediaLink> ContentMediaLinks => Set<ContentMediaLink>();
+    
     // Rules
     public DbSet<Rule> Rules => Set<Rule>();
     
@@ -43,6 +47,9 @@ public class AppDbContext : DbContext
     public DbSet<XIntegrationConnection> XIntegrationConnections => Set<XIntegrationConnection>();
     public DbSet<XSourceState> XSourceStates => Set<XSourceState>();
     public DbSet<OAuthState> OAuthStates => Set<OAuthState>();
+    
+    // Instagram Integration (Sprint 11)
+    public DbSet<InstagramConnection> InstagramConnections => Set<InstagramConnection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -275,6 +282,13 @@ public class AppDbContext : DbContext
             entity.Property(e => e.PublishToWeb).HasDefaultValue(true);
             entity.Property(e => e.PublishToMobile).HasDefaultValue(true);
             entity.Property(e => e.PublishToX).HasDefaultValue(true);
+            entity.Property(e => e.PublishToInstagram).HasDefaultValue(true);
+            entity.Property(e => e.InstagramCaptionOverride).HasMaxLength(2200);
+
+            // Media/image settings (Sprint 10)
+            entity.Property(e => e.AutoGenerateImageIfMissing).HasDefaultValue(true);
+            entity.Property(e => e.ImagePromptOverride).HasMaxLength(1000);
+            entity.Property(e => e.ImageStylePreset).HasMaxLength(100);
 
             entity.HasOne(e => e.ContentItem)
                 .WithOne(c => c.Draft)
@@ -363,6 +377,9 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SourceAttributionText).HasMaxLength(500);
             entity.Property(e => e.IsRetracted).HasDefaultValue(false);
             entity.HasIndex(e => e.IsRetracted);
+
+            // Media (Sprint 10)
+            entity.Property(e => e.PrimaryImageUrl).HasMaxLength(500);
         });
 
         // PublishJob
@@ -514,13 +531,81 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.State).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.CodeVerifier).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.CodeVerifier).IsRequired().HasMaxLength(10000); // Increased for storing JSON page data
             entity.Property(e => e.Provider).IsRequired().HasMaxLength(50);
             entity.Property(e => e.CreatedAtUtc).IsRequired();
             entity.Property(e => e.ExpiresAtUtc).IsRequired();
 
             entity.HasIndex(e => e.State).IsUnique();
             entity.HasIndex(e => e.ExpiresAtUtc);
+        });
+        
+        // InstagramConnection (Sprint 11)
+        modelBuilder.Entity<InstagramConnection>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.FacebookUserId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PageId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PageName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.IgUserId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.IgUsername).HasMaxLength(100);
+            entity.Property(e => e.ScopesCsv).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.PageAccessTokenEncrypted).IsRequired();
+            entity.Property(e => e.TokenExpiresAtUtc).IsRequired();
+            entity.Property(e => e.IsDefaultPublisher).HasDefaultValue(false);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+            entity.Property(e => e.UpdatedAtUtc).IsRequired();
+
+            entity.HasIndex(e => e.PageId);
+            entity.HasIndex(e => e.IgUserId);
+            entity.HasIndex(e => e.IsDefaultPublisher);
+        });
+
+        // MediaAsset (Sprint 10)
+        modelBuilder.Entity<MediaAsset>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Kind).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Origin).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.SourceUrl).HasMaxLength(2048);
+            entity.Property(e => e.StoragePath).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.ContentType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SizeBytes).IsRequired();
+            entity.Property(e => e.Width).IsRequired();
+            entity.Property(e => e.Height).IsRequired();
+            entity.Property(e => e.Sha256).HasMaxLength(64);
+            entity.Property(e => e.AltText).HasMaxLength(500);
+            entity.Property(e => e.GenerationPrompt).HasMaxLength(2000);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+
+            entity.HasIndex(e => e.Sha256);
+            entity.HasIndex(e => e.Origin);
+            entity.HasIndex(e => e.CreatedAtUtc).IsDescending();
+        });
+
+        // ContentMediaLink (Sprint 10)
+        modelBuilder.Entity<ContentMediaLink>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.IsPrimary).HasDefaultValue(false);
+            entity.Property(e => e.SortOrder).HasDefaultValue(0);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+
+            entity.HasOne(e => e.ContentItem)
+                .WithMany(c => c.MediaLinks)
+                .HasForeignKey(e => e.ContentItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.MediaAsset)
+                .WithMany(m => m.ContentLinks)
+                .HasForeignKey(e => e.MediaAssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.ContentItemId, e.MediaAssetId }).IsUnique();
+            entity.HasIndex(e => new { e.ContentItemId, e.IsPrimary });
+            entity.HasIndex(e => new { e.ContentItemId, e.SortOrder });
         });
     }
 }

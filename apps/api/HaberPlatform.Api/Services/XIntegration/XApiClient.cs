@@ -331,6 +331,188 @@ public class XApiClient
 
     #endregion
 
+    #region Media Upload (v1.1 - chunked upload)
+
+    /// <summary>
+    /// Upload media to X using chunked upload (v1.1 API on upload.twitter.com)
+    /// Returns media_id string for use in tweet creation
+    /// </summary>
+    public async Task<XApiResult<string>> UploadMediaChunkedAsync(
+        OAuth1Credentials credentials,
+        byte[] mediaBytes,
+        string mediaType,
+        CancellationToken ct = default)
+    {
+        const string uploadUrl = "https://upload.twitter.com/1.1/media/upload.json";
+        const int chunkSize = 1024 * 1024; // 1MB chunks
+
+        try
+        {
+            // INIT
+            var initParams = new Dictionary<string, string>
+            {
+                ["command"] = "INIT",
+                ["total_bytes"] = mediaBytes.Length.ToString(),
+                ["media_type"] = mediaType,
+                ["media_category"] = "tweet_image"
+            };
+
+            var initResult = await MediaUploadRequestAsync(uploadUrl, credentials, initParams, null);
+            if (!initResult.Success || initResult.MediaId == null)
+            {
+                return XApiResult<string>.Failed(initResult.Error ?? "INIT failed", 400);
+            }
+
+            var mediaId = initResult.MediaId;
+            _logger.LogDebug("Media upload INIT success: media_id={MediaId}", mediaId);
+
+            // APPEND (chunked)
+            var segmentIndex = 0;
+            var offset = 0;
+            while (offset < mediaBytes.Length)
+            {
+                var remaining = mediaBytes.Length - offset;
+                var currentChunkSize = Math.Min(chunkSize, remaining);
+                var chunk = new byte[currentChunkSize];
+                Array.Copy(mediaBytes, offset, chunk, 0, currentChunkSize);
+
+                var appendParams = new Dictionary<string, string>
+                {
+                    ["command"] = "APPEND",
+                    ["media_id"] = mediaId,
+                    ["segment_index"] = segmentIndex.ToString()
+                };
+
+                var appendResult = await MediaUploadRequestAsync(uploadUrl, credentials, appendParams, chunk);
+                if (!appendResult.Success)
+                {
+                    return XApiResult<string>.Failed(appendResult.Error ?? $"APPEND failed at segment {segmentIndex}", 400);
+                }
+
+                offset += currentChunkSize;
+                segmentIndex++;
+            }
+
+            _logger.LogDebug("Media upload APPEND complete: {Segments} segments", segmentIndex);
+
+            // FINALIZE
+            var finalizeParams = new Dictionary<string, string>
+            {
+                ["command"] = "FINALIZE",
+                ["media_id"] = mediaId
+            };
+
+            var finalizeResult = await MediaUploadRequestAsync(uploadUrl, credentials, finalizeParams, null);
+            if (!finalizeResult.Success)
+            {
+                return XApiResult<string>.Failed(finalizeResult.Error ?? "FINALIZE failed", 400);
+            }
+
+            _logger.LogInformation("Media upload complete: media_id={MediaId}", mediaId);
+            return XApiResult<string>.Success(mediaId, "");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Media upload failed");
+            return XApiResult<string>.Failed(ex.Message, 500);
+        }
+    }
+
+    /// <summary>
+    /// Post tweet with media using OAuth 1.0a
+    /// </summary>
+    public async Task<XApiResult<XPostTweetResponse>> PostTweetWithMediaOAuth1Async(
+        OAuth1Credentials credentials,
+        string text,
+        string mediaId)
+    {
+        var body = new
+        {
+            text,
+            media = new
+            {
+                media_ids = new[] { mediaId }
+            }
+        };
+        return await OAuth1PostAsync<XPostTweetResponse>("/2/tweets", credentials, body);
+    }
+
+    private async Task<MediaUploadResult> MediaUploadRequestAsync(
+        string uploadUrl,
+        OAuth1Credentials credentials,
+        Dictionary<string, string> formParams,
+        byte[]? mediaChunk)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+
+            foreach (var param in formParams)
+            {
+                content.Add(new StringContent(param.Value), param.Key);
+            }
+
+            if (mediaChunk != null)
+            {
+                content.Add(new ByteArrayContent(mediaChunk), "media", "media");
+            }
+
+            // Generate OAuth 1.0a header for POST
+            var authHeader = OAuth1Helper.GenerateAuthHeader(
+                "POST",
+                uploadUrl,
+                credentials.ApiKey,
+                credentials.ApiSecretKey,
+                credentials.AccessToken,
+                credentials.AccessTokenSecret
+            );
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, uploadUrl);
+            request.Headers.Add("Authorization", authHeader);
+            request.Content = content;
+
+            using var response = await _httpClient.SendAsync(request);
+            var json = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Media upload {Command} failed: {Status} - {Body}",
+                    formParams.GetValueOrDefault("command"), response.StatusCode, json);
+                return new MediaUploadResult { Success = false, Error = json };
+            }
+
+            // Parse media_id from response
+            if (formParams.GetValueOrDefault("command") == "INIT" || 
+                formParams.GetValueOrDefault("command") == "FINALIZE")
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("media_id_string", out var mediaIdProp))
+                {
+                    return new MediaUploadResult 
+                    { 
+                        Success = true, 
+                        MediaId = mediaIdProp.GetString()
+                    };
+                }
+            }
+
+            return new MediaUploadResult { Success = true };
+        }
+        catch (Exception ex)
+        {
+            return new MediaUploadResult { Success = false, Error = ex.Message };
+        }
+    }
+
+    private class MediaUploadResult
+    {
+        public bool Success { get; set; }
+        public string? MediaId { get; set; }
+        public string? Error { get; set; }
+    }
+
+    #endregion
+
     #region Helpers
 
     private string BuildUrl(string path, Dictionary<string, string>? queryParams)

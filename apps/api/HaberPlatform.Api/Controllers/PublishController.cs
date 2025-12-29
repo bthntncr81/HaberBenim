@@ -70,6 +70,69 @@ public class PublishController : ControllerBase
     }
 
     /// <summary>
+    /// Force retry publishing for a content item by resetting any Pending/Failed jobs to be due now (Admin only)
+    /// </summary>
+    [HttpPost("force-retry/{contentId:guid}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> ForceRetry(Guid contentId)
+    {
+        if (contentId == Guid.Empty)
+            return BadRequest(new { error = "contentId is required" });
+
+        var now = DateTime.UtcNow;
+
+        var updated = await _db.PublishJobs
+            .Where(j => j.ContentItemId == contentId && (j.Status == PublishJobStatuses.Pending || j.Status == PublishJobStatuses.Failed))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PublishJobStatuses.Pending)
+                .SetProperty(j => j.ScheduledAtUtc, now)
+                .SetProperty(j => j.NextRetryAtUtc, (DateTime?)null)
+                .SetProperty(j => j.LastError, (string?)null)
+                .SetProperty(j => j.AttemptCount, 0));
+
+        var processed = await _jobWorker.ProcessDueJobsAsync();
+
+        return Ok(new
+        {
+            message = "Force retry completed",
+            updatedJobs = updated,
+            jobsProcessed = processed
+        });
+    }
+
+    /// <summary>
+    /// Reset jobs that previously failed due to missing drafts (Admin only)
+    /// Useful after fixing ingestion/publishing logic.
+    /// </summary>
+    [HttpPost("reset-no-draft-jobs")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> ResetNoDraftJobs()
+    {
+        var now = DateTime.UtcNow;
+
+        var updated = await _db.PublishJobs
+            .Where(j =>
+                j.LastError != null &&
+                (j.Status == PublishJobStatuses.Pending || j.Status == PublishJobStatuses.Failed) &&
+                j.LastError.Contains("no draft"))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(j => j.Status, PublishJobStatuses.Pending)
+                .SetProperty(j => j.ScheduledAtUtc, now)
+                .SetProperty(j => j.NextRetryAtUtc, (DateTime?)null)
+                .SetProperty(j => j.LastError, (string?)null)
+                .SetProperty(j => j.AttemptCount, 0));
+
+        var processed = await _jobWorker.ProcessDueJobsAsync();
+
+        return Ok(new
+        {
+            message = "Reset no-draft jobs completed",
+            updatedJobs = updated,
+            jobsProcessed = processed
+        });
+    }
+
+    /// <summary>
     /// Publish all AutoReady content items to Web (Admin only)
     /// Creates PublishJobs for all AutoReady items and processes them immediately
     /// </summary>

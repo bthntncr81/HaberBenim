@@ -36,8 +36,9 @@ public static class PublishChannels
     public const string Web = "Web";
     public const string Mobile = "Mobile";
     public const string X = "X";
+    public const string Instagram = "Instagram";
     
-    public static readonly string[] All = [Web, Mobile, X];
+    public static readonly string[] All = [Web, Mobile, X, Instagram];
 }
 
 public static class ChannelPublishStatuses

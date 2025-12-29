@@ -187,12 +187,29 @@ namespace HaberPlatform.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AutoGenerateImageIfMissing")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<Guid>("ContentItemId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("HashtagsCsv")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ImagePromptOverride")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ImageStylePreset")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("InstagramCaptionOverride")
+                        .HasMaxLength(2200)
+                        .HasColumnType("character varying(2200)");
 
                     b.Property<string>("MentionsCsv")
                         .HasMaxLength(500)
@@ -201,6 +218,11 @@ namespace HaberPlatform.Api.Migrations
                     b.Property<string>("MobileSummary")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("PublishToInstagram")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("PublishToMobile")
                         .ValueGeneratedOnAdd()
@@ -492,6 +514,45 @@ namespace HaberPlatform.Api.Migrations
                     b.ToTable("ContentMedia");
                 });
 
+            modelBuilder.Entity("HaberPlatform.Api.Entities.ContentMediaLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ContentItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsPrimary")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("MediaAssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MediaAssetId");
+
+                    b.HasIndex("ContentItemId", "IsPrimary");
+
+                    b.HasIndex("ContentItemId", "MediaAssetId")
+                        .IsUnique();
+
+                    b.HasIndex("ContentItemId", "SortOrder");
+
+                    b.ToTable("ContentMediaLinks");
+                });
+
             modelBuilder.Entity("HaberPlatform.Api.Entities.ContentRevision", b =>
                 {
                     b.Property<Guid>("Id")
@@ -569,6 +630,146 @@ namespace HaberPlatform.Api.Migrations
                     b.ToTable("DailyReportRuns");
                 });
 
+            modelBuilder.Entity("HaberPlatform.Api.Entities.InstagramConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FacebookUserId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("IgUserId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("IgUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDefaultPublisher")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("PageAccessTokenEncrypted")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PageId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PageName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("ScopesCsv")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("TokenExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IgUserId");
+
+                    b.HasIndex("IsDefaultPublisher");
+
+                    b.HasIndex("PageId");
+
+                    b.ToTable("InstagramConnections");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.MediaAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AltText")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GenerationPrompt")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Sha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc")
+                        .IsDescending();
+
+                    b.HasIndex("Origin");
+
+                    b.HasIndex("Sha256");
+
+                    b.ToTable("MediaAssets");
+                });
+
             modelBuilder.Entity("HaberPlatform.Api.Entities.OAuthState", b =>
                 {
                     b.Property<Guid>("Id")
@@ -577,8 +778,8 @@ namespace HaberPlatform.Api.Migrations
 
                     b.Property<string>("CodeVerifier")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -686,6 +887,10 @@ namespace HaberPlatform.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("PrimaryImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("PublishedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1246,6 +1451,25 @@ namespace HaberPlatform.Api.Migrations
                     b.Navigation("ContentItem");
                 });
 
+            modelBuilder.Entity("HaberPlatform.Api.Entities.ContentMediaLink", b =>
+                {
+                    b.HasOne("HaberPlatform.Api.Entities.ContentItem", "ContentItem")
+                        .WithMany("MediaLinks")
+                        .HasForeignKey("ContentItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HaberPlatform.Api.Entities.MediaAsset", "MediaAsset")
+                        .WithMany("ContentLinks")
+                        .HasForeignKey("MediaAssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ContentItem");
+
+                    b.Navigation("MediaAsset");
+                });
+
             modelBuilder.Entity("HaberPlatform.Api.Entities.ContentRevision", b =>
                 {
                     b.HasOne("HaberPlatform.Api.Entities.ContentItem", "ContentItem")
@@ -1362,6 +1586,8 @@ namespace HaberPlatform.Api.Migrations
 
                     b.Navigation("Media");
 
+                    b.Navigation("MediaLinks");
+
                     b.Navigation("PublishJobs");
 
                     b.Navigation("PublishLogs");
@@ -1369,6 +1595,11 @@ namespace HaberPlatform.Api.Migrations
                     b.Navigation("PublishedContent");
 
                     b.Navigation("Revisions");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.MediaAsset", b =>
+                {
+                    b.Navigation("ContentLinks");
                 });
 
             modelBuilder.Entity("HaberPlatform.Api.Entities.Role", b =>

@@ -28,4 +28,8 @@ public class PublishedContent
     // Retract (Sprint 8)
     public bool IsRetracted { get; set; } = false;
     public DateTime? RetractedAtUtc { get; set; }
+
+    // Media (Sprint 10)
+    /// <summary>URL to primary image served from /media/...</summary>
+    public string? PrimaryImageUrl { get; set; }
 }

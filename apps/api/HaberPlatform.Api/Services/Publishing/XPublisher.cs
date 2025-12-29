@@ -1,6 +1,10 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using HaberPlatform.Api.Data;
 using HaberPlatform.Api.Entities;
+using HaberPlatform.Api.Models;
+using HaberPlatform.Api.Services.Media;
 using HaberPlatform.Api.Services.XIntegration;
 
 namespace HaberPlatform.Api.Services.Publishing;
@@ -210,7 +214,69 @@ public class XPublisher : IChannelPublisher
     {
         _logger.LogInformation("Posting tweet using OAuth 1.0a for content {ContentId}", contentItemId);
 
-        var result = await apiClient.PostTweetOAuth1Async(credentials, xText);
+        // Try to get and upload primary image
+        string? uploadedMediaId = null;
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var mediaOptions = scope.ServiceProvider.GetRequiredService<IOptions<MediaOptions>>().Value;
+
+            // Get primary media link
+            var primaryLink = await db.ContentMediaLinks
+                .Include(l => l.MediaAsset)
+                .Where(l => l.ContentItemId == contentItemId && l.IsPrimary)
+                .FirstOrDefaultAsync();
+
+            if (primaryLink?.MediaAsset != null)
+            {
+                var asset = primaryLink.MediaAsset;
+                var rootDir = mediaOptions.RootDir;
+                if (!Path.IsPathRooted(rootDir))
+                {
+                    rootDir = Path.Combine(Directory.GetCurrentDirectory(), rootDir);
+                }
+                var filePath = Path.Combine(rootDir, asset.StoragePath);
+
+                if (File.Exists(filePath))
+                {
+                    var mediaBytes = await File.ReadAllBytesAsync(filePath);
+                    var mediaType = asset.ContentType;
+
+                    _logger.LogInformation("Uploading media for content {ContentId}: {Size} bytes, type={Type}",
+                        contentItemId, mediaBytes.Length, mediaType);
+
+                    var uploadResult = await apiClient.UploadMediaChunkedAsync(credentials, mediaBytes, mediaType);
+
+                    if (uploadResult.IsSuccess && !string.IsNullOrEmpty(uploadResult.Data))
+                    {
+                        uploadedMediaId = uploadResult.Data;
+                        _logger.LogInformation("Media uploaded successfully: media_id={MediaId}", uploadedMediaId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Media upload failed: {Error} - continuing with text-only tweet",
+                            uploadResult.Error);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to upload media for content {ContentId} - continuing with text-only tweet",
+                contentItemId);
+        }
+
+        // Post tweet (with or without media)
+        XApiResult<XPostTweetResponse> result;
+        if (!string.IsNullOrEmpty(uploadedMediaId))
+        {
+            result = await apiClient.PostTweetWithMediaOAuth1Async(credentials, xText, uploadedMediaId);
+        }
+        else
+        {
+            result = await apiClient.PostTweetOAuth1Async(credentials, xText);
+        }
 
         if (result.IsRateLimited)
         {
@@ -272,11 +338,13 @@ public class XPublisher : IChannelPublisher
             tweetId = tweetData.Id,
             text = tweetData.Text ?? xText,
             tweetUrl = $"https://x.com/i/status/{tweetData.Id}",
+            hasMedia = !string.IsNullOrEmpty(uploadedMediaId),
+            mediaId = uploadedMediaId,
             timestamp = DateTime.UtcNow
         };
 
-        _logger.LogInformation("Posted tweet {TweetId} for content {ContentId} (OAuth 1.0a)",
-            tweetData.Id, contentItemId);
+        _logger.LogInformation("Posted tweet {TweetId} for content {ContentId} (OAuth 1.0a, media={HasMedia})",
+            tweetData.Id, contentItemId, !string.IsNullOrEmpty(uploadedMediaId));
 
         return PublishResult.Succeeded(
             requestJson, 

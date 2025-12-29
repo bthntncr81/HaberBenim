@@ -64,6 +64,8 @@ public record EditorialDraftDto(
     bool PublishToWeb,
     bool PublishToMobile,
     bool PublishToX,
+    bool PublishToInstagram,
+    string? InstagramCaptionOverride,
     DateTime UpdatedAtUtc,
     Guid? UpdatedByUserId
 );
@@ -116,6 +118,11 @@ public class SaveDraftRequest
     public bool? PublishToWeb { get; set; }
     public bool? PublishToMobile { get; set; }
     public bool? PublishToX { get; set; }
+    public bool? PublishToInstagram { get; set; }
+    
+    // Instagram caption override
+    [MaxLength(2200)]
+    public string? InstagramCaptionOverride { get; set; }
 }
 
 public record SaveDraftResponse(
@@ -174,6 +181,8 @@ public class DraftSnapshot
     public bool PublishToWeb { get; set; }
     public bool PublishToMobile { get; set; }
     public bool PublishToX { get; set; }
+    public bool PublishToInstagram { get; set; }
+    public string? InstagramCaptionOverride { get; set; }
 }
 
 // Correction request (Sprint 7)

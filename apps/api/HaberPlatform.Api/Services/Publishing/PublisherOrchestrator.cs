@@ -44,12 +44,16 @@ public class PublisherOrchestrator
 
         if (item.Draft == null)
         {
-            result.Error = "Content item has no draft";
-            return result;
+            // Some ingestion paths (e.g. X) may create ContentItem without a draft.
+            // Create a safe default draft so Web publishing can proceed.
+            var draft = CreateDefaultDraft(item);
+            item.Draft = draft;
+            _db.ContentDrafts.Add(draft);
+            _logger.LogInformation("Created default draft for content {ContentId} (Web only)", item.Id);
         }
 
         // Check if all channels are disabled
-        if (!item.Draft.PublishToWeb && !item.Draft.PublishToMobile && !item.Draft.PublishToX)
+        if (!item.Draft.PublishToWeb && !item.Draft.PublishToMobile && !item.Draft.PublishToX && !item.Draft.PublishToInstagram)
         {
             result.Error = "No channels are enabled for publishing. At least one channel must be enabled.";
             _logger.LogWarning("Content {ContentId} has all channels disabled", contentId);
@@ -142,6 +146,7 @@ public class PublisherOrchestrator
             PublishChannels.Web => draft.PublishToWeb,
             PublishChannels.Mobile => draft.PublishToMobile,
             PublishChannels.X => draft.PublishToX,
+            PublishChannels.Instagram => draft.PublishToInstagram,
             _ => true
         };
     }
@@ -224,6 +229,34 @@ public class PublisherOrchestrator
             RetryAfter = result.RetryAfter,
             ExternalId = result.ExternalId
         };
+    }
+
+    private static ContentDraft CreateDefaultDraft(ContentItem item)
+    {
+        // IMPORTANT: Keep this conservative. If we enable X by default and X credentials are missing,
+        // the whole orchestrator run will be considered partially failed and Web won't get published.
+        return new ContentDraft
+        {
+            Id = Guid.NewGuid(),
+            ContentItemId = item.Id,
+            XText = TruncateText(item.Title, 280),
+            WebTitle = item.Title,
+            WebBody = item.BodyText,
+            MobileSummary = TruncateText(item.Summary ?? item.BodyText, 200),
+            PushTitle = TruncateText(item.Title, 100),
+            PushBody = TruncateText(item.Summary ?? item.BodyText, 200),
+            PublishToWeb = true,
+            PublishToMobile = false,
+            PublishToX = false,
+            PublishToInstagram = false,
+            UpdatedAtUtc = DateTime.UtcNow
+        };
+    }
+
+    private static string TruncateText(string? text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        return text.Length <= maxLength ? text : text[..maxLength];
     }
 }
 

@@ -384,6 +384,11 @@ public class RssIngestionService
             MobileSummary = TruncateText(item.Summary ?? item.BodyText, 200),
             PushTitle = TruncateText(item.Title, 100),
             PushBody = TruncateText(item.Summary ?? item.BodyText, 200),
+            // Conservative defaults: publish Web only by default.
+            // (If X is enabled but credentials are missing, Web would also be blocked.)
+            PublishToWeb = true,
+            PublishToMobile = false,
+            PublishToX = false,
             UpdatedAtUtc = DateTime.UtcNow
         };
     }

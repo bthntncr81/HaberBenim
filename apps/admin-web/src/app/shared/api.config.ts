@@ -1,4 +1,6 @@
+import { environment } from '../../environments/environment';
+
 export const API_CONFIG = {
-  baseUrl: 'http://localhost:5078'
+  baseUrl: environment.apiBaseUrl
 } as const;
 

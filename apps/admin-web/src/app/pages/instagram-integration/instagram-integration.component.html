@@ -1,0 +1,431 @@
+<div class="instagram-integration-page">
+  <header class="page-header">
+    <h1>📷 Instagram Entegrasyonu</h1>
+    <p class="subtitle">Meta Graph API ile Instagram yayınlama</p>
+  </header>
+
+  <!-- Error/Success Messages -->
+  @if (errorMessage()) {
+    <div class="alert alert-error">
+      <span class="alert-icon">⚠️</span>
+      <span>{{ errorMessage() }}</span>
+      <button class="alert-close" (click)="errorMessage.set(null)">✕</button>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="alert alert-success">
+      <span class="alert-icon">✅</span>
+      <span>{{ successMessage() }}</span>
+    </div>
+  }
+
+  <!-- Loading State -->
+  @if (viewState() === 'loading') {
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p>Yükleniyor...</p>
+    </div>
+  }
+
+  <!-- Callback Processing State -->
+  @if (viewState() === 'callback') {
+    <div class="callback-processing">
+      <div class="spinner"></div>
+      <h2>Facebook ile doğrulanıyor...</h2>
+      <p>Lütfen bekleyin...</p>
+    </div>
+  }
+
+  <!-- Page Selection State -->
+  @if (viewState() === 'select-page') {
+    <div class="page-selection-card">
+      <div class="card-header">
+        <h2>📋 Sayfa Seçin</h2>
+        <p>Hangi Facebook sayfasının Instagram hesabını bağlamak istiyorsunuz?</p>
+      </div>
+
+      <div class="pages-list">
+        @for (page of pagesWithInstagram; track page.pageId) {
+          <div 
+            class="page-item" 
+            [class.selected]="selectedPageId() === page.pageId"
+            (click)="selectPage(page.pageId)"
+          >
+            <div class="page-icon">📄</div>
+            <div class="page-info">
+              <div class="page-name">{{ page.pageName }}</div>
+              <div class="ig-account">
+                <span class="ig-icon">📷</span>
+                @if (page.igUsername) {
+                  <span>&#64;{{ page.igUsername }}</span>
+                } @else {
+                  <span class="ig-id">ID: {{ page.igUserId }}</span>
+                }
+              </div>
+            </div>
+            <div class="page-check">
+              @if (selectedPageId() === page.pageId) {
+                <span class="check-icon">✓</span>
+              }
+            </div>
+          </div>
+        }
+
+        @if (pagesWithoutInstagram.length > 0) {
+          <div class="pages-divider">
+            <span>Instagram bağlı olmayan sayfalar</span>
+          </div>
+          @for (page of pagesWithoutInstagram; track page.pageId) {
+            <div class="page-item disabled">
+              <div class="page-icon">📄</div>
+              <div class="page-info">
+                <div class="page-name">{{ page.pageName }}</div>
+                <div class="no-ig">⚠️ Instagram hesabı bağlı değil</div>
+              </div>
+            </div>
+          }
+        }
+      </div>
+
+      @if (selectedPageId()) {
+        <div class="connection-name-form">
+          <label>Bağlantı Adı</label>
+          <input 
+            type="text" 
+            [(ngModel)]="connectionName" 
+            placeholder="Örn: Ana Instagram Hesabı"
+          >
+          <span class="hint">Bu ad admin panelinde görünecek</span>
+        </div>
+      }
+
+      <div class="card-actions">
+        <button class="btn-cancel" (click)="cancelPageSelection()">İptal</button>
+        <button 
+          class="btn-connect" 
+          (click)="completeConnection()"
+          [disabled]="!selectedPageId() || !connectionName.trim() || isCompleting()"
+        >
+          @if (isCompleting()) {
+            <span class="spinner-sm"></span>
+          }
+          Bağlantıyı Tamamla
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Main View -->
+  @if (viewState() === 'main') {
+    <!-- Configuration Status -->
+    @if (configStatus()) {
+      <div class="config-status-card">
+        <h3>⚙️ Yapılandırma Durumu</h3>
+        <div class="config-grid">
+          <div class="config-item" [class.ok]="configStatus()!.hasAppId">
+            <span class="config-icon">{{ configStatus()!.hasAppId ? '✅' : '❌' }}</span>
+            <span>META_APP_ID</span>
+          </div>
+          <div class="config-item" [class.ok]="configStatus()!.hasRedirectUri">
+            <span class="config-icon">{{ configStatus()!.hasRedirectUri ? '✅' : '❌' }}</span>
+            <span>META_REDIRECT_URI</span>
+          </div>
+          <div class="config-item" [class.ok]="configStatus()!.hasPublicAssetUrl">
+            <span class="config-icon">{{ configStatus()!.hasPublicAssetUrl ? '✅' : '❌' }}</span>
+            <span>PUBLIC_ASSET_BASE_URL</span>
+          </div>
+        </div>
+
+        @if (configStatus()!.warnings.length > 0) {
+          <div class="warnings-list">
+            @for (warning of configStatus()!.warnings; track warning) {
+              <div class="warning-item">
+                <span class="warning-icon">⚠️</span>
+                <span>{{ warning }}</span>
+              </div>
+            }
+          </div>
+        }
+
+        <button class="btn-configure" (click)="toggleSettingsForm()">
+          {{ showSettingsForm() ? '✕ Kapat' : '⚙️ Ayarları Düzenle' }}
+        </button>
+      </div>
+    }
+
+    <!-- Settings Form -->
+    @if (showSettingsForm()) {
+      <div class="settings-form-card">
+        <h3>🔧 Meta/Instagram Ayarları</h3>
+        <p class="form-description">
+          Bu değerleri <a href="https://developers.facebook.com/apps/" target="_blank">Facebook Developer Console</a>'dan alabilirsiniz.
+        </p>
+
+        <div class="form-group">
+          <label for="appId">META_APP_ID *</label>
+          <input 
+            type="text" 
+            id="appId" 
+            [(ngModel)]="settingsForm.appId" 
+            placeholder="123456789012345"
+          >
+          <span class="hint">Facebook App ID (Settings → Basic)</span>
+        </div>
+
+        <div class="form-group">
+          <label for="appSecret">META_APP_SECRET *</label>
+          <input 
+            type="password" 
+            id="appSecret" 
+            [(ngModel)]="settingsForm.appSecret" 
+            placeholder="••••••••••••••••"
+          >
+          <span class="hint">Facebook App Secret (Settings → Basic → Show)</span>
+        </div>
+
+        <div class="form-group">
+          <label for="redirectUri">META_REDIRECT_URI *</label>
+          <input 
+            type="text" 
+            id="redirectUri" 
+            [(ngModel)]="settingsForm.redirectUri" 
+            placeholder="http://localhost:4200/integrations/instagram"
+          >
+          <span class="hint">OAuth callback URL (bu sayfanın adresi)</span>
+        </div>
+
+        <div class="form-group">
+          <label for="publicAssetUrl">PUBLIC_ASSET_BASE_URL</label>
+          <input 
+            type="text" 
+            id="publicAssetUrl" 
+            [(ngModel)]="settingsForm.publicAssetBaseUrl" 
+            placeholder="https://your-domain.com"
+          >
+          <span class="hint">Görseller için herkese açık URL (ngrok veya gerçek domain)</span>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-cancel" (click)="toggleSettingsForm()">İptal</button>
+          <button 
+            class="btn-save" 
+            (click)="saveSettings()" 
+            [disabled]="isSavingSettings() || !settingsForm.appId.trim() || !settingsForm.appSecret.trim()"
+          >
+            @if (isSavingSettings()) {
+              <span class="spinner-sm"></span>
+            }
+            Kaydet
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- Connections Table (Show First if Connected) -->
+    @if (activeConnections.length > 0) {
+      <div class="connections-card">
+        <div class="card-header-row">
+          <h3>📋 Bağlı Hesaplar</h3>
+          <button 
+            class="btn-add-account"
+            (click)="toggleAddAccount()"
+          >
+            {{ showAddAccount() ? '✕ İptal' : '+ Yeni Hesap Ekle' }}
+          </button>
+        </div>
+        <div class="table-container">
+          <table class="connections-table">
+            <thead>
+              <tr>
+                <th>Ad</th>
+                <th>Sayfa</th>
+                <th>Instagram</th>
+                <th>Varsayılan</th>
+                <th>Token Bitiş</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (conn of activeConnections; track conn.id) {
+                <tr [class.selected-row]="conn.isDefaultPublisher">
+                  <td class="name-cell">{{ conn.name }}</td>
+                  <td>{{ conn.pageName }}</td>
+                  <td class="ig-cell">
+                    @if (conn.igUsername) {
+                      <span class="ig-username">&#64;{{ conn.igUsername }}</span>
+                    } @else {
+                      <span class="ig-id">{{ conn.igUserId }}</span>
+                    }
+                  </td>
+                  <td class="default-cell">
+                    @if (conn.isDefaultPublisher) {
+                      <span class="default-badge">✓ Varsayılan</span>
+                    } @else {
+                      <button 
+                        class="btn-make-default"
+                        (click)="setDefault(conn.id)"
+                        [disabled]="actionInProgress() === conn.id"
+                      >
+                        Varsayılan Yap
+                      </button>
+                    }
+                  </td>
+                  <td class="expires-cell">
+                    <span 
+                      class="expires-date"
+                      [class.expired]="isExpired(conn.tokenExpiresAtUtc)"
+                      [class.expiring-soon]="isExpiringSoon(conn.tokenExpiresAtUtc)"
+                    >
+                      {{ formatDate(conn.tokenExpiresAtUtc) }}
+                    </span>
+                    @if (isExpired(conn.tokenExpiresAtUtc)) {
+                      <span class="expired-label">Süresi dolmuş!</span>
+                    } @else if (isExpiringSoon(conn.tokenExpiresAtUtc)) {
+                      <span class="expiring-label">Yakında dolacak</span>
+                    }
+                  </td>
+                  <td class="actions-cell">
+                    <button 
+                      class="btn-action btn-disconnect"
+                      (click)="disconnect(conn.id, conn.name)"
+                      [disabled]="actionInProgress() === conn.id"
+                      title="Bağlantıyı Kes"
+                    >
+                      @if (actionInProgress() === conn.id) {
+                        <span class="spinner-xs"></span>
+                      } @else {
+                        🔌
+                      }
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- Add New Account Section (shows when no connections or when adding) -->
+    @if (activeConnections.length === 0 || showAddAccount()) {
+      <div class="connect-section">
+        <div class="connect-info">
+          <h3>🔗 Instagram Hesabı Bağla</h3>
+          <p>Graph API Explorer'dan Page Access Token alın ve aşağıya girin.</p>
+          <ol class="requirements-list">
+            <li><a href="https://developers.facebook.com/tools/explorer/" target="_blank">Graph API Explorer</a>'a gidin</li>
+            <li>App'inizi seçin → "Get User Access Token"</li>
+            <li>İzinleri ekleyin: pages_show_list, instagram_basic, instagram_content_publish</li>
+            <li>/me/accounts sorgusu ile Page Token alın</li>
+          </ol>
+        </div>
+
+        <div class="manual-token-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Bağlantı Adı *</label>
+              <input 
+                type="text" 
+                [(ngModel)]="manualForm.name" 
+                placeholder="Örn: Habersensin Instagram"
+              >
+            </div>
+          </div>
+          
+          <div class="form-row two-cols">
+            <div class="form-group">
+              <label>Instagram User ID *</label>
+              <input 
+                type="text" 
+                [(ngModel)]="manualForm.igUserId" 
+                placeholder="17841479983398234"
+              >
+            </div>
+            <div class="form-group">
+              <label>Instagram Kullanıcı Adı</label>
+              <input 
+                type="text" 
+                [(ngModel)]="manualForm.igUsername" 
+                placeholder="habersensin81"
+              >
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Page Access Token *</label>
+            <textarea 
+              [(ngModel)]="manualForm.accessToken" 
+              rows="3"
+              placeholder="EAAhfmXKgRfs..."
+            ></textarea>
+            <span class="hint">Graph API Explorer'dan aldığınız EAA... ile başlayan token</span>
+          </div>
+          
+          <div class="form-actions">
+            @if (activeConnections.length > 0) {
+              <button class="btn-cancel" (click)="toggleAddAccount()">İptal</button>
+            }
+            <button 
+              class="btn-save" 
+              (click)="saveManualConnection()" 
+              [disabled]="isSavingManual() || !manualForm.name.trim() || !manualForm.igUserId.trim() || !manualForm.accessToken.trim()"
+            >
+              @if (isSavingManual()) {
+                <span class="spinner-sm"></span>
+              }
+              Bağlantıyı Kaydet
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Inactive Connections -->
+    @if (inactiveConnections.length > 0) {
+      <div class="connections-card inactive">
+        <h3>🔇 Devre Dışı Bağlantılar</h3>
+        <div class="table-container">
+          <table class="connections-table">
+            <thead>
+              <tr>
+                <th>Ad</th>
+                <th>Sayfa</th>
+                <th>Instagram</th>
+                <th>Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (conn of inactiveConnections; track conn.id) {
+                <tr class="inactive-row">
+                  <td>{{ conn.name }}</td>
+                  <td>{{ conn.pageName }}</td>
+                  <td>
+                    @if (conn.igUsername) {
+                      &#64;{{ conn.igUsername }}
+                    } @else {
+                      {{ conn.igUserId }}
+                    }
+                  </td>
+                  <td><span class="inactive-badge">Devre Dışı</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+
+    <!-- Info Section -->
+    <div class="info-section">
+      <h3>ℹ️ Önemli Bilgiler</h3>
+      <ul>
+        <li><strong>Token Süresi:</strong> Facebook Page Access Token'ları yaklaşık 60 gün geçerlidir. Süresi dolmadan önce yeniden bağlanmanız gerekir.</li>
+        <li><strong>Görsel Gereksinimi:</strong> Instagram paylaşımları için görsel zorunludur. Görsel olmayan içerikler Instagram'a paylaşılmaz.</li>
+        <li><strong>Hız Limiti:</strong> Instagram API'si 24 saatte maksimum 100 paylaşıma izin verir.</li>
+        <li><strong>PUBLIC_ASSET_BASE_URL:</strong> Instagram'ın görsellere erişebilmesi için herkese açık bir HTTPS URL gereklidir. Localhost çalışmaz!</li>
+      </ul>
+    </div>
+  }
+</div>
+

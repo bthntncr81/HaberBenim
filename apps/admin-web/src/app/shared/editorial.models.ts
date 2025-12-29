@@ -63,6 +63,9 @@ export interface EditorialDraft {
   publishToWeb: boolean;
   publishToMobile: boolean;
   publishToX: boolean;
+  // Instagram (Sprint 11)
+  publishToInstagram: boolean;
+  instagramCaptionOverride: string | null;
 }
 
 export interface EditorialMedia {
@@ -95,6 +98,9 @@ export interface SaveDraftRequest {
   publishToWeb?: boolean;
   publishToMobile?: boolean;
   publishToX?: boolean;
+  // Instagram (Sprint 11)
+  publishToInstagram?: boolean;
+  instagramCaptionOverride?: string | null;
 }
 
 export interface SaveDraftResponse {

@@ -4,7 +4,7 @@
     <div class="header-content">
       <div class="brand">
         <span class="brand-icon">📡</span>
-        <h1 class="brand-name">Haber Platform</h1>
+        <h1 class="brand-name">Haber Benim</h1>
       </div>
       <p class="tagline">Your curated news aggregator</p>
     </div>
@@ -62,15 +62,22 @@
         <div class="news-list">
           @for (article of articles(); track article.id) {
             <article class="news-item" (click)="openArticle(article)">
-              <div class="news-meta">
-                @if (article.sourceName) {
-                  <span class="news-source">{{ article.sourceName }}</span>
-                }
-                <span class="news-date">{{ formatDate(article.publishedAtUtc) }}</span>
+              @if (article.primaryImageUrl) {
+                <div class="news-image">
+                  <img [src]="article.primaryImageUrl" [alt]="article.webTitle" loading="lazy">
+                </div>
+              }
+              <div class="news-content">
+                <div class="news-meta">
+                  @if (article.sourceName) {
+                    <span class="news-source">{{ article.sourceName }}</span>
+                  }
+                  <span class="news-date">{{ formatDate(article.publishedAtUtc) }}</span>
+                </div>
+                <h3 class="news-title">{{ article.webTitle }}</h3>
+                <p class="news-excerpt">{{ article.excerpt }}</p>
+                <span class="read-more">Read more →</span>
               </div>
-              <h3 class="news-title">{{ article.webTitle }}</h3>
-              <p class="news-excerpt">{{ article.excerpt }}</p>
-              <span class="read-more">Read more →</span>
             </article>
           } @empty {
             <div class="empty-state">
@@ -107,8 +114,8 @@
 
   <!-- Footer -->
   <footer class="footer">
-    <p>© 2024 Haber Platform. All rights reserved.</p>
-    <p class="footer-note">Powered by Haber Platform API</p>
+    <p>© 2024 Haber Benim. All rights reserved.</p>
+    <p class="footer-note">Powered by Haber Benim API</p>
   </footer>
 </div>
 

@@ -13,7 +13,7 @@ import { AuthService } from '../../services/auth.service';
       <div class="login-card">
         <div class="login-header">
           <span class="logo-icon">📡</span>
-          <h1>Haber Platform</h1>
+          <h1>Haber Benim</h1>
           <p class="subtitle">Sign in to Admin Dashboard</p>
         </div>
         

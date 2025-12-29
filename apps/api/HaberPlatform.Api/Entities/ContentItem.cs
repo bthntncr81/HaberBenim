@@ -62,6 +62,7 @@ public class ContentItem
 
     // Navigation
     public ICollection<ContentMedia> Media { get; set; } = new List<ContentMedia>();
+    public ICollection<ContentMediaLink> MediaLinks { get; set; } = new List<ContentMediaLink>();
     public ICollection<ContentDuplicate> Duplicates { get; set; } = new List<ContentDuplicate>();
     public ContentDraft? Draft { get; set; }
     public ICollection<ContentRevision> Revisions { get; set; } = new List<ContentRevision>();

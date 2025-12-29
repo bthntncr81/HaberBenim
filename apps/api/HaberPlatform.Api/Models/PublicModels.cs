@@ -11,7 +11,8 @@ public record PublicArticleListItemDto(
     string Path,
     string? CanonicalUrl,
     string? SourceName,
-    string? CategoryOrGroup
+    string? CategoryOrGroup,
+    string? PrimaryImageUrl
 );
 
 /// <summary>
@@ -26,7 +27,8 @@ public record PublicArticleDto(
     string Slug,
     string? CanonicalUrl,
     string? SourceName,
-    string? CategoryOrGroup
+    string? CategoryOrGroup,
+    string? PrimaryImageUrl
 );
 
 /// <summary>

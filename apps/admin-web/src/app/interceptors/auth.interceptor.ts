@@ -14,14 +14,20 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   const token = authService.getToken();
   
-  let authReq = req;
+  // Build headers object
+  const headers: Record<string, string> = {};
+  
+  // Add auth token if available
   if (token) {
-    authReq = req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`
-      }
-    });
+    headers['Authorization'] = `Bearer ${token}`;
   }
+  
+  // Add ngrok header to skip browser warning (for ngrok tunnels)
+  if (API_CONFIG.baseUrl.includes('ngrok')) {
+    headers['ngrok-skip-browser-warning'] = 'true';
+  }
+
+  const authReq = req.clone({ setHeaders: headers });
 
   return next(authReq).pipe(
     catchError((error: HttpErrorResponse) => {

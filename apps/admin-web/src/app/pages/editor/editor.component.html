@@ -315,8 +315,26 @@
                     <input type="checkbox" [(ngModel)]="draft.publishToX">
                     <span class="toggle-label">𝕏 X/Twitter</span>
                   </label>
+                  <label class="toggle-item">
+                    <input type="checkbox" [(ngModel)]="draft.publishToInstagram">
+                    <span class="toggle-label">📷 Instagram</span>
+                  </label>
                 </div>
               </div>
+
+              <!-- Instagram Caption Override -->
+              @if (draft.publishToInstagram) {
+                <div class="form-group instagram-caption-group">
+                  <label>📷 Instagram Yazısı (Opsiyonel)</label>
+                  <textarea 
+                    [(ngModel)]="draft.instagramCaptionOverride" 
+                    rows="3"
+                    maxlength="2200"
+                    placeholder="Boş bırakırsanız otomatik oluşturulur (başlık + özet + hashtag)..."
+                  ></textarea>
+                  <span class="hint">Max 2200 karakter. Instagram paylaşımı için görsel zorunludur.</span>
+                </div>
+              }
 
               <div class="form-row">
                 <div class="form-group">
@@ -366,6 +384,128 @@
 
       <!-- Sidebar: Revisions -->
       <div class="editor-sidebar">
+        <!-- Media Section -->
+        <div class="sidebar-section media-section">
+          <div class="section-header">
+            <h3>🖼️ Medya</h3>
+            @if (isLoadingMedia()) {
+              <span class="spinner-xs"></span>
+            }
+          </div>
+
+          @if (hasMedia) {
+            <!-- Primary Image Preview -->
+            <div class="primary-media">
+              @if (primaryMedia; as media) {
+                <div class="media-preview">
+                  <img [src]="media.publicUrl" [alt]="media.altText || 'Ana görsel'" loading="lazy">
+                  <div class="media-overlay">
+                    <span 
+                      class="origin-badge" 
+                      [style.background]="getOriginColor(media.origin)"
+                    >
+                      {{ getOriginLabel(media.origin) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="media-info">
+                  <span class="media-dimensions">{{ media.width }}×{{ media.height }}</span>
+                  <span class="media-size">{{ formatFileSize(media.sizeBytes) }}</span>
+                </div>
+              }
+            </div>
+
+            <!-- All Media Assets -->
+            @if (mediaAssets().length > 1) {
+              <div class="media-list">
+                <h4>Tüm Görseller ({{ mediaAssets().length }})</h4>
+                @for (asset of mediaAssets(); track asset.id) {
+                  <div class="media-item" [class.primary]="asset.isPrimary">
+                    <img [src]="asset.publicUrl" [alt]="asset.altText || 'Görsel'" class="media-thumb">
+                    <div class="media-item-info">
+                      <span 
+                        class="origin-badge-sm" 
+                        [style.background]="getOriginColor(asset.origin)"
+                      >
+                        {{ getOriginLabel(asset.origin) }}
+                      </span>
+                      @if (asset.isPrimary) {
+                        <span class="primary-label">Ana</span>
+                      }
+                    </div>
+                    <div class="media-item-actions">
+                      @if (!asset.isPrimary && canApproveRejectSchedule) {
+                        <button 
+                          class="btn-icon" 
+                          title="Ana görsel yap"
+                          (click)="setPrimaryMedia(asset.id)"
+                          [disabled]="isSettingPrimary() === asset.id"
+                        >
+                          @if (isSettingPrimary() === asset.id) {
+                            <span class="spinner-xs"></span>
+                          } @else {
+                            ⭐
+                          }
+                        </button>
+                      }
+                      @if (canApproveRejectSchedule) {
+                        <button 
+                          class="btn-icon btn-icon-danger" 
+                          title="Sil"
+                          (click)="deleteMedia(asset.id)"
+                          [disabled]="isDeletingMedia() === asset.id"
+                        >
+                          @if (isDeletingMedia() === asset.id) {
+                            <span class="spinner-xs"></span>
+                          } @else {
+                            🗑️
+                          }
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          } @else {
+            <!-- Empty State -->
+            <div class="media-empty">
+              <span class="empty-icon">🖼️</span>
+              <p>Henüz görsel yok</p>
+            </div>
+          }
+
+          <!-- Media Actions -->
+          @if (canApproveRejectSchedule) {
+            <div class="media-actions">
+              <button 
+                class="btn-media-action"
+                (click)="refreshMediaFromSource()"
+                [disabled]="isRefreshingMedia()"
+              >
+                @if (isRefreshingMedia()) {
+                  <span class="spinner-xs"></span>
+                } @else {
+                  🔄
+                }
+                Kaynak görseli çek
+              </button>
+              <button 
+                class="btn-media-action btn-ai"
+                (click)="openAIGenerateModal()"
+                [disabled]="isGeneratingMedia()"
+              >
+                @if (isGeneratingMedia()) {
+                  <span class="spinner-xs"></span>
+                } @else {
+                  🤖
+                }
+                AI görsel üret
+              </button>
+            </div>
+          }
+        </div>
+
         <div class="sidebar-section">
           <h3>Revisions</h3>
           <div class="revisions-list">
@@ -672,10 +812,69 @@
   </div>
 }
 
+<!-- AI Generate Modal -->
+@if (showAIGenerateModal()) {
+  <div class="modal-overlay" (click)="closeAIGenerateModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🤖 AI Görsel Oluştur</h2>
+        <button class="btn-close" (click)="closeAIGenerateModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="ai-info">
+          <p>Yapay zeka, içeriğe uygun soyut bir haber illüstrasyonu oluşturacak. Gerçek insan yüzleri veya logolar içermez.</p>
+        </div>
+        <div class="form-group">
+          <label>Özel Prompt (Opsiyonel)</label>
+          <textarea 
+            [(ngModel)]="aiPromptOverride" 
+            rows="4"
+            placeholder="Boş bırakırsanız içerik başlığından otomatik oluşturulur..."
+          ></textarea>
+          <span class="hint">Örn: "Modern ve minimalist bir teknoloji illüstrasyonu, mavi tonlar"</span>
+        </div>
+        <div class="form-group">
+          <label>Stil Ön Ayarı</label>
+          <select [(ngModel)]="aiStylePreset">
+            <option value="news-illustration">Haber İllüstrasyonu</option>
+            <option value="abstract">Soyut</option>
+            <option value="minimalist">Minimalist</option>
+            <option value="tech">Teknoloji</option>
+            <option value="business">İş Dünyası</option>
+          </select>
+        </div>
+        @if (hasMedia) {
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="aiForce">
+              <span>Mevcut görseli yenisiyle değiştir (zorla)</span>
+            </label>
+            <span class="hint">İşaretli değilse ve zaten bir ana görsel varsa, yeni görsel oluşturulmaz</span>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeAIGenerateModal()">İptal</button>
+        <button 
+          class="btn-confirm-ai" 
+          (click)="submitAIGenerate()"
+          [disabled]="isGeneratingMedia()"
+        >
+          @if (isGeneratingMedia()) {
+            <span class="spinner-sm"></span>
+          }
+          Görsel Oluştur
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
 <!-- Toast -->
 @if (showToast()) {
   <div class="toast" [class]="toastType()">
     {{ toastMessage() }}
   </div>
 }
+
 
