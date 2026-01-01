@@ -41,8 +41,9 @@ public class WebPublisher : IChannelPublisher
             // Build source attribution for compliance
             var attribution = BuildSourceAttribution(item.Source);
 
-            // Get primary image URL
+            // Get primary image and video URLs
             string? primaryImageUrl = null;
+            string? primaryVideoUrl = null;
             try
             {
                 using var scope = _serviceProvider.CreateScope();
@@ -54,10 +55,23 @@ public class WebPublisher : IChannelPublisher
                 {
                     primaryImageUrl = mediaPipeline.GetPublicUrl(primaryImage.StoragePath);
                 }
+
+                // Get primary video if exists (from AI video jobs)
+                var primaryVideo = await _db.ContentMediaLinks
+                    .Include(l => l.MediaAsset)
+                    .Where(l => l.ContentItemId == item.Id && l.MediaAsset!.Kind == "Video")
+                    .OrderByDescending(l => l.CreatedAtUtc)
+                    .Select(l => l.MediaAsset)
+                    .FirstOrDefaultAsync(ct);
+
+                if (primaryVideo != null)
+                {
+                    primaryVideoUrl = mediaPipeline.GetPublicUrl(primaryVideo.StoragePath);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to get primary image for content {ContentId}", item.Id);
+                _logger.LogWarning(ex, "Failed to get primary media for content {ContentId}", item.Id);
             }
 
             var requestPayload = new
@@ -70,7 +84,8 @@ public class WebPublisher : IChannelPublisher
                 categoryOrGroup = item.Source?.Group,
                 slug,
                 sourceAttribution = attribution,
-                primaryImageUrl
+                primaryImageUrl,
+                primaryVideoUrl
             };
 
             var requestJson = JsonSerializer.Serialize(requestPayload);
@@ -90,6 +105,7 @@ public class WebPublisher : IChannelPublisher
                 existing.Path = SlugHelper.GeneratePath(existing.Id, slug);
                 existing.SourceAttributionText = attribution;
                 existing.PrimaryImageUrl = primaryImageUrl;
+                existing.PrimaryVideoUrl = primaryVideoUrl;
                 existing.PublishedAtUtc = DateTime.UtcNow;
             }
             else
@@ -108,6 +124,7 @@ public class WebPublisher : IChannelPublisher
                     Path = SlugHelper.GeneratePath(id, slug),
                     SourceAttributionText = attribution,
                     PrimaryImageUrl = primaryImageUrl,
+                    PrimaryVideoUrl = primaryVideoUrl,
                     PublishedAtUtc = DateTime.UtcNow
                 };
                 _db.PublishedContents.Add(published);
@@ -122,11 +139,12 @@ public class WebPublisher : IChannelPublisher
                 slug = existing.Slug,
                 path = existing.Path,
                 primaryImageUrl = existing.PrimaryImageUrl,
+                primaryVideoUrl = existing.PrimaryVideoUrl,
                 publishedAt = existing.PublishedAtUtc
             };
 
-            _logger.LogInformation("Published content {ContentId} to Web with path {Path}, image={HasImage}", 
-                item.Id, existing.Path, existing.PrimaryImageUrl != null);
+            _logger.LogInformation("Published content {ContentId} to Web with path {Path}, image={HasImage}, video={HasVideo}", 
+                item.Id, existing.Path, existing.PrimaryImageUrl != null, existing.PrimaryVideoUrl != null);
 
             return PublishResult.Succeeded(requestJson, JsonSerializer.Serialize(responsePayload));
         }

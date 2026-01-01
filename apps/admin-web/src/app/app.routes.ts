@@ -116,4 +116,13 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard],
     data: { roles: ["Admin"] },
   },
+  {
+    path: "integrations/openai",
+    loadComponent: () =>
+      import("./pages/openai-config/openai-config.component").then(
+        (m) => m.OpenAiConfigComponent
+      ),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ["Admin"] },
+  },
 ];

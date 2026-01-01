@@ -40,7 +40,10 @@ public record SourceDetailDto(
     DateTime UpdatedAtUtc,
     DateTime? LastFetchedAtUtc,
     int FetchIntervalMinutes,
-    XSourceStateDto? XState
+    XSourceStateDto? XState,
+    // RSS Full-Text Enrichment (Sprint 12)
+    bool FullTextFetchEnabled,
+    string FullTextExtractMode
 );
 
 /// <summary>
@@ -103,6 +106,12 @@ public class UpsertSourceRequest : IValidatableObject
     [Required(ErrorMessage = "DefaultBehavior is required")]
     public required string DefaultBehavior { get; set; }
 
+    // RSS Full-Text Enrichment (Sprint 12)
+    public bool FullTextFetchEnabled { get; set; } = false;
+    
+    [StringLength(20, ErrorMessage = "FullTextExtractMode cannot exceed 20 characters")]
+    public string FullTextExtractMode { get; set; } = "Auto";
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         // Validate Type
@@ -164,6 +173,16 @@ public class UpsertSourceRequest : IValidatableObject
                     );
                 }
             }
+        }
+
+        // Validate FullTextExtractMode
+        var validModes = new[] { "Auto", "JsonLd", "Readability", "None" };
+        if (!validModes.Contains(FullTextExtractMode))
+        {
+            yield return new ValidationResult(
+                $"FullTextExtractMode must be one of: {string.Join(", ", validModes)}",
+                new[] { nameof(FullTextExtractMode) }
+            );
         }
     }
 }

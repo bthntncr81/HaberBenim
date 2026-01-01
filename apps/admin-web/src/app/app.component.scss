@@ -150,6 +150,22 @@
       transition: transform 0.2s;
     }
 
+    .nav-icon-svg {
+      width: 18px;
+      height: 18px;
+      filter: brightness(0) saturate(100%) invert(60%) sepia(10%) saturate(200%) hue-rotate(180deg);
+      transition: transform 0.2s, filter 0.2s;
+    }
+
+    &:hover .nav-icon-svg {
+      filter: brightness(0) saturate(100%) invert(90%) sepia(10%) saturate(200%) hue-rotate(180deg);
+    }
+
+    &.active .nav-icon-svg {
+      filter: brightness(0) saturate(100%) invert(55%) sepia(90%) saturate(1500%) hue-rotate(175deg) brightness(100%) contrast(90%);
+      transform: scale(1.1);
+    }
+
     .nav-label {
       font-weight: 500;
     }

@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Xml;
+using System.Xml.Linq;
 using HaberPlatform.Api.Data;
 using HaberPlatform.Api.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -27,15 +28,21 @@ public class RssIngestionService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<RssIngestionService> _logger;
+    private readonly ArticleExtractorService _articleExtractor;
+
+    // content:encoded namespace
+    private static readonly XNamespace ContentNamespace = "http://purl.org/rss/1.0/modules/content/";
 
     public RssIngestionService(
         IServiceScopeFactory scopeFactory,
         IHttpClientFactory httpClientFactory,
-        ILogger<RssIngestionService> logger)
+        ILogger<RssIngestionService> logger,
+        ArticleExtractorService articleExtractor)
     {
         _scopeFactory = scopeFactory;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _articleExtractor = articleExtractor;
     }
 
     public async Task<RssIngestionResult> IngestAllAsync(CancellationToken cancellationToken = default)
@@ -182,8 +189,12 @@ public class RssIngestionService
         var canonicalUrl = GetCanonicalUrl(item);
         var title = item.Title?.Text ?? "";
         var summary = StripHtml(item.Summary?.Text);
+        
+        // Extract content:encoded if available
+        var (contentHtml, contentText, isTruncated) = ExtractContent(item);
+        
         var originalText = item.Summary?.Text ?? item.Content?.ToString();
-        var bodyText = NormalizeText(summary ?? title);
+        var bodyText = !string.IsNullOrEmpty(contentText) ? contentText : NormalizeText(summary ?? title);
         var publishedAt = item.PublishDate.UtcDateTime;
         if (publishedAt == DateTime.MinValue) publishedAt = DateTime.UtcNow;
 
@@ -235,8 +246,19 @@ public class RssIngestionService
             PublishedAtUtc = publishedAt,
             IngestedAtUtc = DateTime.UtcNow,
             DedupHash = dedupHash,
-            Status = ContentStatuses.New
+            Status = ContentStatuses.New,
+            // RSS Full-Text Enrichment fields
+            SummaryHtml = item.Summary?.Text,
+            ContentHtml = contentHtml,
+            ContentText = contentText,
+            IsTruncated = isTruncated
         };
+
+        // If content is truncated and source has full-text fetch enabled, try to extract full content
+        if (isTruncated && source.FullTextFetchEnabled && !string.IsNullOrEmpty(canonicalUrl))
+        {
+            await TryEnrichFullTextAsync(contentItem, canonicalUrl, source.FullTextExtractMode);
+        }
 
         // Add media from enclosures
         foreach (var link in item.Links.Where(l => l.RelationshipType == "enclosure"))
@@ -397,5 +419,92 @@ public class RssIngestionService
     {
         if (string.IsNullOrEmpty(text)) return string.Empty;
         return text.Length <= maxLength ? text : text[..maxLength];
+    }
+
+    /// <summary>
+    /// Extracts content from RSS item, preferring content:encoded over description
+    /// </summary>
+    private static (string? ContentHtml, string? ContentText, bool IsTruncated) ExtractContent(SyndicationItem item)
+    {
+        string? contentHtml = null;
+        string? contentText = null;
+        bool isTruncated = false;
+
+        // Try to get content:encoded first
+        var contentEncoded = item.ElementExtensions
+            .FirstOrDefault(e => e.OuterName == "encoded" && e.OuterNamespace == ContentNamespace.NamespaceName);
+
+        if (contentEncoded != null)
+        {
+            try
+            {
+                contentHtml = contentEncoded.GetObject<string>();
+                if (!string.IsNullOrWhiteSpace(contentHtml))
+                {
+                    contentText = ContentCleaner.Clean(StripHtml(contentHtml));
+                    // content:encoded usually has full content
+                    isTruncated = ContentCleaner.DetectTruncation(contentText);
+                    return (contentHtml, contentText, isTruncated);
+                }
+            }
+            catch
+            {
+                // Fall through to description
+            }
+        }
+
+        // Fallback to description
+        var description = item.Summary?.Text;
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            contentHtml = description;
+            contentText = ContentCleaner.Clean(StripHtml(description));
+            isTruncated = ContentCleaner.DetectTruncation(contentText);
+        }
+        else
+        {
+            // No content at all - definitely truncated
+            isTruncated = true;
+        }
+
+        return (contentHtml, contentText, isTruncated);
+    }
+
+    /// <summary>
+    /// Attempts to fetch and extract full article text from the canonical URL
+    /// </summary>
+    private async Task TryEnrichFullTextAsync(ContentItem contentItem, string articleUrl, string extractMode)
+    {
+        try
+        {
+            var result = await _articleExtractor.ExtractAsync(articleUrl, extractMode);
+
+            if (result.Success && !string.IsNullOrWhiteSpace(result.ContentText))
+            {
+                contentItem.ContentHtml = result.ContentHtml ?? contentItem.ContentHtml;
+                contentItem.ContentText = result.ContentText;
+                contentItem.BodyText = result.ContentText;
+                contentItem.IsTruncated = false;
+                contentItem.ArticleFetchError = null;
+
+                _logger.LogDebug(
+                    "Enriched content for {Title} using {Method}",
+                    contentItem.Title,
+                    result.ExtractionMethod);
+            }
+            else
+            {
+                contentItem.ArticleFetchError = result.Error ?? "Extraction returned no content";
+                _logger.LogDebug(
+                    "Failed to enrich content for {Title}: {Error}",
+                    contentItem.Title,
+                    contentItem.ArticleFetchError);
+            }
+        }
+        catch (Exception ex)
+        {
+            contentItem.ArticleFetchError = ex.Message;
+            _logger.LogWarning(ex, "Error enriching content for {Title}", contentItem.Title);
+        }
     }
 }

@@ -325,6 +325,34 @@
           </div>
         }
         
+        <!-- RSS Full-Text Enrichment Settings (only for RSS type) -->
+        @if (formData.type === 'RSS') {
+          <div class="form-section">
+            <h4>📄 Full-Text Enrichment</h4>
+            <p class="section-hint">Fetch full article content when RSS provides truncated summaries</p>
+            
+            <div class="form-group checkbox">
+              <label>
+                <input type="checkbox" [(ngModel)]="formData.fullTextFetchEnabled">
+                Enable Full-Text Fetch
+              </label>
+              <span class="hint">When enabled, truncated content will be fetched from the source URL</span>
+            </div>
+            
+            @if (formData.fullTextFetchEnabled) {
+              <div class="form-group">
+                <label>Extraction Mode</label>
+                <select [(ngModel)]="formData.fullTextExtractMode">
+                  @for (mode of fullTextExtractModes; track mode.value) {
+                    <option [value]="mode.value">{{ mode.label }}</option>
+                  }
+                </select>
+                <span class="hint">Auto tries JSON-LD first, then falls back to Readability-style extraction</span>
+              </div>
+            }
+          </div>
+        }
+        
         <div class="form-row">
           <div class="form-group">
             <label>Category *</label>

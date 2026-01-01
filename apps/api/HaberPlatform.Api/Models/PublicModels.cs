@@ -12,7 +12,8 @@ public record PublicArticleListItemDto(
     string? CanonicalUrl,
     string? SourceName,
     string? CategoryOrGroup,
-    string? PrimaryImageUrl
+    string? PrimaryImageUrl,
+    string? PrimaryVideoUrl
 );
 
 /// <summary>
@@ -28,7 +29,8 @@ public record PublicArticleDto(
     string? CanonicalUrl,
     string? SourceName,
     string? CategoryOrGroup,
-    string? PrimaryImageUrl
+    string? PrimaryImageUrl,
+    string? PrimaryVideoUrl
 );
 
 /// <summary>

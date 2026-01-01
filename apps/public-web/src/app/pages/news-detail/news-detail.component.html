@@ -15,61 +15,69 @@
   <main class="main-content">
     <!-- Loading State -->
     @if (isLoading()) {
-      <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading article...</p>
-      </div>
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading article...</p>
+    </div>
     }
 
     <!-- Error State -->
     @if (error()) {
-      <div class="error-state">
-        <span class="error-icon">📰</span>
-        <h2>{{ error() }}</h2>
-        <p>The article you're looking for might have been removed or doesn't exist.</p>
-        <button class="btn-home" (click)="goBack()">Go to Home</button>
-      </div>
+    <div class="error-state">
+      <span class="error-icon">📰</span>
+      <h2>{{ error() }}</h2>
+      <p>The article you're looking for might have been removed or doesn't exist.</p>
+      <button class="btn-home" (click)="goBack()">Go to Home</button>
+    </div>
     }
 
     <!-- Article Content -->
     @if (article(); as article) {
-      <article class="article">
-        @if (article.primaryImageUrl) {
-          <div class="article-image">
-            <img [src]="article.primaryImageUrl" [alt]="article.webTitle">
-          </div>
-        }
+    <article class="article">
+      <!-- Video or Image -->
+      @if (article.primaryVideoUrl) {
+      <div class="article-media article-video">
+        <video controls autoplay muted [poster]="article.primaryImageUrl || undefined" class="video-player">
+          <source [src]="article.primaryVideoUrl" type="video/mp4">
+          Tarayıcınız video oynatmayı desteklemiyor.
+        </video>
+      </div>
+      } @else if (article.primaryImageUrl) {
+      <div class="article-media article-image">
+        <img [src]="article.primaryImageUrl" [alt]="article.webTitle">
+      </div>
+      }
 
-        <div class="article-header">
-          <div class="article-meta">
-            @if (article.sourceName) {
-              <span class="source">{{ article.sourceName }}</span>
-            }
-            <span class="date">{{ formatDate(article.publishedAtUtc) }}</span>
-          </div>
-          <h1 class="article-title">{{ article.webTitle }}</h1>
-        </div>
-
-        <div class="article-body">
-          @for (paragraph of formatBody(article.webBody); track $index) {
-            <p>{{ paragraph }}</p>
+      <div class="article-header">
+        <div class="article-meta">
+          @if (article.sourceName) {
+          <span class="source">{{ article.sourceName }}</span>
           }
+          <span class="date">{{ formatDate(article.publishedAtUtc) }}</span>
         </div>
+        <h1 class="article-title">{{ article.webTitle }}</h1>
+      </div>
 
-        @if (article.canonicalUrl) {
-          <div class="article-source-link">
-            <a [href]="article.canonicalUrl" target="_blank" rel="noopener noreferrer">
-              📎 View original source
-            </a>
-          </div>
+      <div class="article-body">
+        @for (paragraph of formatBody(article.webBody); track $index) {
+        <p>{{ paragraph }}</p>
         }
+      </div>
 
-        <div class="article-footer">
-          <button class="btn-back-bottom" (click)="goBack()">
-            ← Back to all articles
-          </button>
-        </div>
-      </article>
+      @if (article.canonicalUrl) {
+      <div class="article-source-link">
+        <a [href]="article.canonicalUrl" target="_blank" rel="noopener noreferrer">
+          📎 View original source
+        </a>
+      </div>
+      }
+
+      <div class="article-footer">
+        <button class="btn-back-bottom" (click)="goBack()">
+          ← Back to all articles
+        </button>
+      </div>
+    </article>
     }
   </main>
 
@@ -78,4 +86,3 @@
     <p>© 2024 Haber Benim. All rights reserved.</p>
   </footer>
 </div>
-

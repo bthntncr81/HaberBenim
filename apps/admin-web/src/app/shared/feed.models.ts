@@ -15,6 +15,9 @@ export interface FeedItem {
   decidedAtUtc: string | null;
   scheduledAtUtc: string | null;
   trustLevelSnapshot: number | null;
+  // RSS Full-Text Enrichment (Sprint 12)
+  isTruncated: boolean;
+  contentText: string | null;
 }
 
 export interface FeedItemDetail {
@@ -39,6 +42,11 @@ export interface FeedItemDetail {
   scheduledAtUtc: string | null;
   trustLevelSnapshot: number | null;
   media: MediaItem[];
+  // RSS Full-Text Enrichment (Sprint 12)
+  isTruncated: boolean;
+  contentHtml: string | null;
+  contentText: string | null;
+  articleFetchError: string | null;
 }
 
 export interface MediaItem {

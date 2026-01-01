@@ -51,6 +51,13 @@ public class Source
     
     // X source state (Sprint 9)
     public XSourceState? XSourceState { get; set; }
+    
+    // RSS Full-Text Enrichment (Sprint 12)
+    /// <summary>Whether to fetch full article text when RSS content is truncated</summary>
+    public bool FullTextFetchEnabled { get; set; } = false;
+    
+    /// <summary>Extraction mode: "Auto"|"JsonLd"|"Readability"|"None"</summary>
+    public string FullTextExtractMode { get; set; } = "Auto";
 }
 
 /// <summary>Valid source types</summary>

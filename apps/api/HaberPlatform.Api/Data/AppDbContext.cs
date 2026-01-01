@@ -28,6 +28,9 @@ public class AppDbContext : DbContext
     public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
     public DbSet<ContentMediaLink> ContentMediaLinks => Set<ContentMediaLink>();
     
+    // AI Video Jobs
+    public DbSet<AiVideoJob> AiVideoJobs => Set<AiVideoJob>();
+    
     // Rules
     public DbSet<Rule> Rules => Set<Rule>();
     
@@ -148,6 +151,10 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => new { e.IsActive, e.Priority }).IsDescending(false, true);
             entity.HasIndex(e => new { e.Type, e.IsActive });
             entity.HasIndex(e => e.Group);
+
+            // RSS Full-Text Enrichment (Sprint 12)
+            entity.Property(e => e.FullTextFetchEnabled).HasDefaultValue(false);
+            entity.Property(e => e.FullTextExtractMode).HasMaxLength(20).HasDefaultValue("Auto");
         });
 
         // ContentItem
@@ -215,6 +222,10 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.RetractedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // RSS Full-Text Enrichment (Sprint 12)
+            entity.Property(e => e.IsTruncated).HasDefaultValue(false);
+            entity.Property(e => e.ArticleFetchError).HasMaxLength(1000);
 
             // Indices
             entity.HasIndex(e => new { e.SourceId, e.PublishedAtUtc });
@@ -606,6 +617,37 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => new { e.ContentItemId, e.MediaAssetId }).IsUnique();
             entity.HasIndex(e => new { e.ContentItemId, e.IsPrimary });
             entity.HasIndex(e => new { e.ContentItemId, e.SortOrder });
+        });
+
+        // AiVideoJob
+        modelBuilder.Entity<AiVideoJob>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Provider).IsRequired().HasMaxLength(50).HasDefaultValue("OpenAI");
+            entity.Property(e => e.Model).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Prompt).IsRequired();
+            entity.Property(e => e.Seconds).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Size).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.OpenAiVideoId).HasMaxLength(200);
+            entity.Property(e => e.Progress).HasDefaultValue(0);
+            entity.Property(e => e.Error).HasMaxLength(2000);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+            entity.Property(e => e.UpdatedAtUtc).IsRequired();
+
+            entity.HasOne(e => e.ContentItem)
+                .WithMany()
+                .HasForeignKey(e => e.ContentItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.MediaAsset)
+                .WithMany()
+                .HasForeignKey(e => e.MediaAssetId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ContentItemId);
+            entity.HasIndex(e => new { e.Status, e.CreatedAtUtc });
         });
     }
 }

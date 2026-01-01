@@ -1,16 +1,17 @@
-import { Component, inject, signal, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { SourceApiService } from '../../services/source-api.service';
 import { AuthService } from '../../services/auth.service';
-import { 
-  SourceListItem, 
-  SourceDetail,
-  XSourceState, 
-  SourceTypes, 
-  DefaultBehaviors,
-  Categories,
-  UpsertSourceRequest 
+import { SourceApiService } from '../../services/source-api.service';
+import {
+    Categories,
+    DefaultBehaviors,
+    FullTextExtractModes,
+    SourceDetail,
+    SourceListItem,
+    SourceTypes,
+    UpsertSourceRequest,
+    XSourceState
 } from '../../shared/source.models';
 
 interface SourceWithState extends SourceListItem {
@@ -73,6 +74,7 @@ export class SourcesComponent implements OnInit {
   sourceTypes = SourceTypes;
   defaultBehaviors = DefaultBehaviors;
   categories = Categories;
+  fullTextExtractModes = FullTextExtractModes;
 
   get totalPages(): number {
     return Math.ceil(this.total() / this.pageSize());
@@ -211,7 +213,9 @@ export class SourcesComponent implements OnInit {
           trustLevel: detail.trustLevel,
           priority: detail.priority,
           isActive: detail.isActive,
-          defaultBehavior: detail.defaultBehavior
+          defaultBehavior: detail.defaultBehavior,
+          fullTextFetchEnabled: detail.fullTextFetchEnabled,
+          fullTextExtractMode: detail.fullTextExtractMode
         };
         this.showEditModal.set(true);
       },
@@ -427,7 +431,9 @@ export class SourcesComponent implements OnInit {
       trustLevel: 50,
       priority: 100,
       isActive: true,
-      defaultBehavior: 'Editorial'
+      defaultBehavior: 'Editorial',
+      fullTextFetchEnabled: false,
+      fullTextExtractMode: 'Auto'
     };
   }
 

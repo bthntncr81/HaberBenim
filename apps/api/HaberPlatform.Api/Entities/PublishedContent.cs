@@ -32,4 +32,7 @@ public class PublishedContent
     // Media (Sprint 10)
     /// <summary>URL to primary image served from /media/...</summary>
     public string? PrimaryImageUrl { get; set; }
+    
+    /// <summary>URL to primary video served from /media/...</summary>
+    public string? PrimaryVideoUrl { get; set; }
 }

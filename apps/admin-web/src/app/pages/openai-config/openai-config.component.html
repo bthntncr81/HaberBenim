@@ -1,0 +1,160 @@
+<div class="openai-config-page">
+    <header class="page-header">
+        <h1><img src="assets/icons/openai.svg" class="header-icon" alt=""> OpenAI Configuration</h1>
+        <p class="subtitle">Manage your OpenAI API key and settings</p>
+    </header>
+
+    <!-- Error/Success Messages -->
+    @if (errorMessage()) {
+    <div class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <span>{{ errorMessage() }}</span>
+        <button class="alert-close" (click)="errorMessage.set(null)">✕</button>
+    </div>
+    }
+
+    @if (successMessage()) {
+    <div class="alert alert-success">
+        <span class="alert-icon">✅</span>
+        <span>{{ successMessage() }}</span>
+    </div>
+    }
+
+    <!-- Loading State -->
+    @if (isLoading()) {
+    <div class="loading-container">
+        <div class="spinner"></div>
+        <p>Loading configuration...</p>
+    </div>
+    } @else {
+
+    <!-- Status Card -->
+    <div class="status-card">
+        <h3>📊 Configuration Status</h3>
+        <div class="status-grid">
+            <div class="status-item" [class.ok]="openAiStatus()?.isConfigured">
+                <span class="status-label">Configured</span>
+                <span class="status-value">
+                    @if (openAiStatus()?.isConfigured) {
+                    <span class="status-yes">✓ Yes</span>
+                    } @else {
+                    <span class="status-no">✗ No</span>
+                    }
+                </span>
+            </div>
+            @if (openAiStatus()?.isConfigured && openAiStatus()?.keyLast4) {
+            <div class="status-item">
+                <span class="status-label">API Key</span>
+                <span class="status-value mono">****{{ openAiStatus()?.keyLast4 }}</span>
+            </div>
+            }
+            @if (openAiStatus()?.orgId) {
+            <div class="status-item">
+                <span class="status-label">Organization</span>
+                <span class="status-value mono">{{ openAiStatus()?.orgId }}</span>
+            </div>
+            }
+            <div class="status-item" [class.ok]="openAiStatus()?.lastTestOk === true"
+                [class.error]="openAiStatus()?.lastTestOk === false">
+                <span class="status-label">Last Test</span>
+                <span class="status-value">
+                    @if (openAiStatus()?.lastTestOk === true) {
+                    <span class="status-yes">✓ Passed</span>
+                    } @else if (openAiStatus()?.lastTestOk === false) {
+                    <span class="status-no">✗ Failed</span>
+                    } @else {
+                    <span class="status-na">Not tested</span>
+                    }
+                </span>
+            </div>
+            @if (openAiStatus()?.lastTestAtUtc) {
+            <div class="status-item">
+                <span class="status-label">Tested At</span>
+                <span class="status-value">{{ formatDate(openAiStatus()?.lastTestAtUtc ?? null) }}</span>
+            </div>
+            }
+            <div class="status-item" [class.ok]="openAiStatus()?.sora2Available === true">
+                <span class="status-label">sora-2 Available</span>
+                <span class="status-value">
+                    @if (openAiStatus()?.sora2Available === true) {
+                    <span class="status-yes">✓ Yes</span>
+                    } @else if (openAiStatus()?.sora2Available === false) {
+                    <span class="status-no">✗ No</span>
+                    } @else {
+                    <span class="status-na">Unknown</span>
+                    }
+                </span>
+            </div>
+        </div>
+        @if (openAiStatus()?.lastError) {
+        <div class="status-error">
+            <span class="error-label">⚠️ Last Error:</span>
+            <span class="error-text">{{ openAiStatus()?.lastError }}</span>
+        </div>
+        }
+    </div>
+
+    <!-- API Key Form -->
+    <div class="form-card">
+        <h3>🔑 API Key Configuration</h3>
+        <p class="form-description">Enter your OpenAI API key. The key is encrypted at rest and never displayed in full.
+        </p>
+
+        <div class="form-group">
+            <label>API Key *</label>
+            <div class="password-input-wrapper">
+                <input [type]="showApiKey() ? 'text' : 'password'" [(ngModel)]="form.apiKey" placeholder="sk-proj-..."
+                    autocomplete="off">
+                <button type="button" class="btn-toggle-visibility" (click)="toggleShowApiKey()">
+                    {{ showApiKey() ? '🙈' : '👁️' }}
+                </button>
+            </div>
+            <span class="hint">Starts with sk- or sk-proj-. Minimum 20 characters.</span>
+        </div>
+
+        <div class="form-group">
+            <label>Organization ID (optional)</label>
+            <input type="text" [(ngModel)]="form.orgId" placeholder="org-...">
+            <span class="hint">Only needed if you belong to multiple organizations.</span>
+        </div>
+
+        <div class="form-actions">
+            @if (openAiStatus()?.isConfigured) {
+            <button class="btn-delete" (click)="deleteKey()" [disabled]="isSaving() || isTesting()">
+                🗑️ Delete Key
+            </button>
+            }
+            <button class="btn-test" (click)="testKey()"
+                [disabled]="!openAiStatus()?.isConfigured || isTesting() || isSaving()">
+                @if (isTesting()) {
+                <span class="spinner-sm"></span> Testing...
+                } @else {
+                🧪 Test Key
+                }
+            </button>
+            <button class="btn-save" (click)="saveKey()" [disabled]="!form.apiKey.trim() || isSaving() || isTesting()">
+                @if (isSaving()) {
+                <span class="spinner-sm"></span> Saving...
+                } @else {
+                💾 Save Key
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- Info Section -->
+    <div class="info-section">
+        <h3>ℹ️ About OpenAI Integration</h3>
+        <ul>
+            <li><strong>API Key Security:</strong> Your API key is encrypted using ASP.NET Core Data Protection before
+                storage. Only the last 4 characters are ever displayed.</li>
+            <li><strong>sora-2:</strong> The test checks if the sora-2 video generation model is available in your
+                account.</li>
+            <li><strong>Rate Limits:</strong> OpenAI enforces rate limits based on your subscription tier. Check your
+                OpenAI dashboard for details.</li>
+            <li><strong>Get API Key:</strong> Visit <a href="https://platform.openai.com/api-keys"
+                    target="_blank">platform.openai.com/api-keys</a> to create or manage your API keys.</li>
+        </ul>
+    </div>
+    }
+</div>

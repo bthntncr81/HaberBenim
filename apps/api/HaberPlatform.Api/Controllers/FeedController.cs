@@ -87,7 +87,9 @@ public class FeedController : ControllerBase
                 c.DecisionReason,
                 c.DecidedAtUtc,
                 c.ScheduledAtUtc,
-                c.TrustLevelSnapshot
+                c.TrustLevelSnapshot,
+                c.IsTruncated,
+                c.ContentText
             ))
             .ToListAsync();
 
@@ -130,7 +132,11 @@ public class FeedController : ControllerBase
                 m.MediaType,
                 m.Url,
                 m.ThumbUrl
-            )).ToList()
+            )).ToList(),
+            item.IsTruncated,
+            item.ContentHtml,
+            item.ContentText,
+            item.ArticleFetchError
         );
 
         return Ok(dto);

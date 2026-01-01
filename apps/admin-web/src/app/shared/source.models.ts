@@ -21,6 +21,9 @@ export interface SourceDetail extends SourceListItem {
   lastFetchedAtUtc: string | null;
   fetchIntervalMinutes: number;
   xState: XSourceState | null;
+  // RSS Full-Text Enrichment (Sprint 12)
+  fullTextFetchEnabled: boolean;
+  fullTextExtractMode: string;
 }
 
 export interface XSourceState {
@@ -52,6 +55,9 @@ export interface UpsertSourceRequest {
   priority: number;
   isActive: boolean;
   defaultBehavior: string;
+  // RSS Full-Text Enrichment (Sprint 12)
+  fullTextFetchEnabled: boolean;
+  fullTextExtractMode: string;
 }
 
 export interface ToggleActiveRequest {
@@ -88,4 +94,12 @@ export const Categories = [
   'Dunya',
   'Saglik',
   'Kultur'
+];
+
+// RSS Full-Text Enrichment extract modes (Sprint 12)
+export const FullTextExtractModes = [
+  { value: 'Auto', label: 'Auto (Try all methods)' },
+  { value: 'JsonLd', label: 'JSON-LD Only' },
+  { value: 'Readability', label: 'Readability Only' },
+  { value: 'None', label: 'Disabled' }
 ];

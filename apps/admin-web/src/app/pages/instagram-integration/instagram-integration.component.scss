@@ -5,19 +5,82 @@
 }
 
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 
   h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 1.75rem;
     font-weight: 600;
     color: #1a1a2e;
     margin: 0 0 8px 0;
+
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      filter: brightness(0) saturate(100%) invert(30%) sepia(80%) saturate(2000%) hue-rotate(310deg) brightness(90%) contrast(95%);
+    }
   }
 
   .subtitle {
     color: #6b7280;
     margin: 0;
   }
+}
+
+// Tabs Navigation
+.tabs-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0;
+
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    color: #6b7280;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      color: #374151;
+      background: #f9fafb;
+    }
+
+    &.active {
+      color: #c13584;
+      border-bottom-color: #c13584;
+    }
+
+    .tab-icon {
+      width: 18px;
+      height: 18px;
+      filter: brightness(0) saturate(100%) invert(50%) sepia(10%) saturate(200%) hue-rotate(180deg);
+    }
+
+    &.active .tab-icon {
+      filter: brightness(0) saturate(100%) invert(30%) sepia(80%) saturate(2000%) hue-rotate(310deg) brightness(90%) contrast(95%);
+    }
+  }
+}
+
+.tab-content {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 // Alerts
@@ -762,6 +825,12 @@
         gap: 6px;
         font-size: 0.875rem;
         color: #c13584;
+
+        .ig-icon-svg {
+          width: 16px;
+          height: 16px;
+          filter: brightness(0) saturate(100%) invert(30%) sepia(80%) saturate(2000%) hue-rotate(310deg) brightness(90%) contrast(95%);
+        }
       }
 
       .no-ig {
@@ -1086,6 +1155,263 @@
   .connections-table {
     .actions-cell {
       flex-direction: column;
+    }
+  }
+
+  .tabs-nav {
+    .tab-btn {
+      padding: 10px 14px;
+      font-size: 0.875rem;
+    }
+  }
+}
+
+// ==================== OPENAI TAB STYLES ====================
+.openai-tab {
+  .openai-status-card,
+  .openai-form-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+
+    h3 {
+      margin: 0 0 16px;
+      font-size: 1.1rem;
+      color: #374151;
+    }
+  }
+
+  // Status Grid
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+  }
+
+  .status-item {
+    padding: 12px 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border-left: 3px solid #e5e7eb;
+
+    &.ok {
+      border-left-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    &.error {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+
+    .status-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .status-value {
+      font-size: 0.95rem;
+      color: #1f2937;
+
+      &.mono {
+        font-family: 'Monaco', 'Consolas', monospace;
+        font-size: 0.875rem;
+      }
+    }
+
+    .status-yes {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    .status-no {
+      color: #dc2626;
+      font-weight: 600;
+    }
+
+    .status-na {
+      color: #9ca3af;
+      font-style: italic;
+    }
+  }
+
+  .status-error {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    font-size: 0.875rem;
+
+    .error-label {
+      font-weight: 600;
+      color: #b91c1c;
+      margin-right: 8px;
+    }
+
+    .error-text {
+      color: #991b1b;
+    }
+  }
+
+  // Form Styles
+  .form-description {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+
+    label {
+      display: block;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 8px;
+      font-size: 0.875rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+
+      &:focus {
+        outline: none;
+        border-color: #10a37f;
+        box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.15);
+      }
+
+      &::placeholder {
+        color: #9ca3af;
+      }
+    }
+
+    .hint {
+      display: block;
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+  }
+
+  .password-input-wrapper {
+    position: relative;
+    display: flex;
+
+    input {
+      padding-right: 48px;
+    }
+
+    .btn-toggle-visibility {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      padding: 6px;
+      cursor: pointer;
+      font-size: 18px;
+      color: #6b7280;
+      border-radius: 4px;
+
+      &:hover {
+        background: #f3f4f6;
+      }
+    }
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .btn-save,
+  .btn-test,
+  .btn-delete {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .btn-save {
+    background: linear-gradient(135deg, #10a37f, #0d8a6a);
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0d8a6a, #0a7058);
+    }
+  }
+
+  .btn-test {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+
+    &:hover:not(:disabled) {
+      background: #e5e7eb;
+    }
+  }
+
+  .btn-delete {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+
+    &:hover:not(:disabled) {
+      background: #fee2e2;
+    }
+  }
+
+  // OpenAI Info Section
+  .openai-info {
+    background: #f0fdf9;
+    border-color: #99f6e4;
+
+    h3 {
+      color: #0d9488;
+    }
+
+    ul {
+      color: #115e59;
+    }
+
+    a {
+      color: #0d9488;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
     }
   }
 }

@@ -506,6 +506,113 @@
           }
         </div>
 
+        <!-- AI Video Section -->
+        <div class="sidebar-section ai-video-section">
+          <div class="section-header">
+            <h3>🎬 AI Video</h3>
+            @if (isLoadingVideoStatus()) {
+              <span class="spinner-xs"></span>
+            }
+          </div>
+
+          <!-- Safety Hint -->
+          <div class="ai-video-hint">
+            <span class="hint-icon">⚠️</span>
+            <span>Gerçek kişi adı/logosu kullanmayın. Sanal sunucu tarzı üretim önerilir.</span>
+          </div>
+
+          @if (aiVideoJob(); as job) {
+            <!-- Video Job Status -->
+            <div class="video-job-card" [class]="getVideoStatusClass(job.status)">
+              <div class="job-status-row">
+                <span class="job-status-label">Durum:</span>
+                <span class="job-status-value" [class]="getVideoStatusClass(job.status)">
+                  {{ getVideoStatusLabel(job.status) }}
+                </span>
+              </div>
+
+              @if (job.status === 'InProgress' || job.status === 'Queued') {
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                  <div class="progress-bar">
+                    <div class="progress-fill" [style.width.%]="job.progress"></div>
+                  </div>
+                  <span class="progress-text">{{ job.progress }}%</span>
+                </div>
+                
+                <button 
+                  class="btn-cancel-video"
+                  (click)="cancelVideoGeneration()"
+                  [disabled]="isCancellingVideo()"
+                >
+                  @if (isCancellingVideo()) {
+                    <span class="spinner-xs"></span>
+                  }
+                  ❌ İptal Et
+                </button>
+              }
+
+              @if (job.status === 'Completed' && job.mediaUrl) {
+                <!-- Video Preview -->
+                <div class="video-preview">
+                  <video controls [src]="job.mediaUrl" class="video-player">
+                    Tarayıcınız video oynatmayı desteklemiyor.
+                  </video>
+                </div>
+                <div class="video-info">
+                  <span class="video-model">{{ job.model }}</span>
+                  <span class="video-duration">{{ job.seconds }}s</span>
+                  <span class="video-size">{{ job.size }}</span>
+                </div>
+              }
+
+              @if (job.status === 'Failed') {
+                <!-- Error State -->
+                <div class="video-error">
+                  <span class="error-icon">❌</span>
+                  <span class="error-text">{{ job.error || 'Bilinmeyen hata' }}</span>
+                </div>
+                <button 
+                  class="btn-retry-video"
+                  (click)="retryVideoGeneration()"
+                  [disabled]="isGeneratingVideo()"
+                >
+                  @if (isGeneratingVideo()) {
+                    <span class="spinner-xs"></span>
+                  }
+                  🔄 Tekrar Dene
+                </button>
+              }
+
+              <div class="job-meta">
+                <span class="job-created">{{ formatDate(job.createdAtUtc) }}</span>
+              </div>
+            </div>
+          } @else {
+            <!-- Empty State -->
+            <div class="video-empty">
+              <span class="empty-icon">🎬</span>
+              <p>Henüz AI video yok</p>
+            </div>
+          }
+
+          <!-- Generate Video Button -->
+          @if (canApproveRejectSchedule) {
+            <button 
+              class="btn-generate-video"
+              (click)="openAIVideoModal()"
+              [disabled]="isGeneratingVideo() || (aiVideoJob()?.status === 'InProgress') || (aiVideoJob()?.status === 'Queued')"
+            >
+              @if (isGeneratingVideo()) {
+                <span class="spinner-xs"></span>
+              } @else {
+                🎬
+              }
+              AI Video Üret
+            </button>
+          }
+        </div>
+
         <div class="sidebar-section">
           <h3>Revisions</h3>
           <div class="revisions-list">
@@ -864,6 +971,123 @@
             <span class="spinner-sm"></span>
           }
           Görsel Oluştur
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- AI Video Modal -->
+@if (showAIVideoModal()) {
+  <div class="modal-overlay" (click)="closeAIVideoModal()">
+    <div class="modal-content ai-video-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🎬 AI Video Oluştur</h2>
+        <button class="btn-close" (click)="closeAIVideoModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="ai-video-warning">
+          <span class="warning-icon">⚠️</span>
+          <p><strong>Uyarı:</strong> Gerçek kişi adı veya logosu kullanmayın. Sanal sunucu tarzı üretim önerilir.</p>
+        </div>
+
+        <!-- Mode Selector -->
+        <div class="form-group">
+          <label>Prompt Modu</label>
+          <div class="mode-selector">
+            <label class="mode-option">
+              <input 
+                type="radio" 
+                name="videoMode" 
+                value="AutoPrompt" 
+                [(ngModel)]="videoMode"
+                (change)="onVideoModeChange()"
+              >
+              <span>🤖 Otomatik Prompt</span>
+            </label>
+            <label class="mode-option">
+              <input 
+                type="radio" 
+                name="videoMode" 
+                value="CustomPrompt" 
+                [(ngModel)]="videoMode"
+                (change)="onVideoModeChange()"
+              >
+              <span>✏️ Özel Prompt</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Prompt Area -->
+        <div class="form-group">
+          <label>
+            @if (videoMode === 'AutoPrompt') {
+              Prompt Önizlemesi (düzenlenebilir)
+            } @else {
+              Özel Prompt
+            }
+          </label>
+          <textarea 
+            [(ngModel)]="videoMode === 'AutoPrompt' ? videoPromptPreview : videoPromptOverride" 
+            rows="6"
+            [placeholder]="videoMode === 'AutoPrompt' ? 'Yükleniyor...' : 'Video için prompt yazın...'"
+          ></textarea>
+          @if (videoMode === 'AutoPrompt') {
+            <span class="hint">İçerik başlığından otomatik oluşturuldu. Düzenleyebilirsiniz.</span>
+          } @else {
+            <span class="hint">Kendi prompt'unuzu yazın. Güvenlik kuralları otomatik eklenir.</span>
+          }
+        </div>
+
+        <!-- Settings Row -->
+        <div class="video-settings-row">
+          <div class="form-group">
+            <label>Model</label>
+            <select [(ngModel)]="videoModel">
+              <option value="sora-2">Sora 2</option>
+              <option value="sora-2-pro">Sora 2 Pro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Süre</label>
+            <select [(ngModel)]="videoSeconds">
+              <option value="4">4 saniye</option>
+              <option value="8">8 saniye</option>
+              <option value="12">12 saniye</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Boyut</label>
+            <select [(ngModel)]="videoSize">
+              <option value="1280x720">1280×720 (Yatay)</option>
+              <option value="720x1280">720×1280 (Dikey)</option>
+              <option value="1792x1024">1792×1024 (Geniş)</option>
+              <option value="1024x1792">1024×1792 (Uzun)</option>
+            </select>
+          </div>
+        </div>
+
+        @if (aiVideoJob()) {
+          <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="videoForce">
+              <span>Mevcut videoyu yenisiyle değiştir (zorla)</span>
+            </label>
+            <span class="hint">İşaretli değilse ve zaten tamamlanmış bir video varsa, yeni video oluşturulmaz</span>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeAIVideoModal()">İptal</button>
+        <button 
+          class="btn-confirm-video" 
+          (click)="generateAiVideo()"
+          [disabled]="isGeneratingVideo()"
+        >
+          @if (isGeneratingVideo()) {
+            <span class="spinner-sm"></span>
+          }
+          🎬 Video Oluştur
         </button>
       </div>
     </div>

@@ -138,6 +138,8 @@ public class SourcesController : ControllerBase
             Priority = request.Priority,
             IsActive = request.IsActive,
             DefaultBehavior = request.DefaultBehavior,
+            FullTextFetchEnabled = request.FullTextFetchEnabled,
+            FullTextExtractMode = request.FullTextExtractMode,
             CreatedAtUtc = DateTime.UtcNow,
             UpdatedAtUtc = DateTime.UtcNow
         };
@@ -220,6 +222,8 @@ public class SourcesController : ControllerBase
         source.Priority = request.Priority;
         source.IsActive = request.IsActive;
         source.DefaultBehavior = request.DefaultBehavior;
+        source.FullTextFetchEnabled = request.FullTextFetchEnabled;
+        source.FullTextExtractMode = request.FullTextExtractMode;
         source.UpdatedAtUtc = DateTime.UtcNow;
 
         // Handle XSourceState based on type change
@@ -371,7 +375,9 @@ public class SourcesController : ControllerBase
                     source.XSourceState.LastError,
                     source.XSourceState.ConsecutiveFailures
                 )
-                : null
+                : null,
+            source.FullTextFetchEnabled,
+            source.FullTextExtractMode
         );
     }
 }

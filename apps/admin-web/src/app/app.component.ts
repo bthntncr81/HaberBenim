@@ -1,11 +1,11 @@
 import { CommonModule } from "@angular/common";
 import { Component, computed, inject, signal } from "@angular/core";
 import {
-  NavigationEnd,
-  Router,
-  RouterLink,
-  RouterLinkActive,
-  RouterOutlet,
+    NavigationEnd,
+    Router,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
 } from "@angular/router";
 import { filter } from "rxjs";
 import { AuthService } from "./services/auth.service";
@@ -14,6 +14,7 @@ interface NavItem {
   path: string;
   label: string;
   icon: string;
+  svgIcon?: string; // Optional SVG icon path
   roles: string[];
 }
 
@@ -86,7 +87,15 @@ export class AppComponent {
     {
       path: "/integrations/instagram",
       label: "Instagram",
-      icon: "📷",
+      icon: "",
+      svgIcon: "assets/icons/instagram.svg",
+      roles: ["Admin"],
+    },
+    {
+      path: "/integrations/openai",
+      label: "OpenAI Config",
+      icon: "",
+      svgIcon: "assets/icons/openai.svg",
       roles: ["Admin"],
     },
   ];

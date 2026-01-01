@@ -1,13 +1,13 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { InstagramApiService } from '../../services/instagram-api.service';
 import { SettingsApiService } from '../../services/settings-api.service';
 import {
-  InstagramConnectionDto,
-  InstagramConfigStatus,
-  InstagramPageInfo
+    InstagramConfigStatus,
+    InstagramConnectionDto,
+    InstagramPageInfo
 } from '../../shared/instagram.models';
 
 type ViewState = 'loading' | 'main' | 'callback' | 'select-page';

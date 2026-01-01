@@ -687,6 +687,35 @@
       }
     }
   }
+
+  .form-section {
+    margin: 24px 0;
+    padding: 20px;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    border-left: 3px solid var(--accent-primary);
+
+    h4 {
+      margin: 0 0 4px 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .section-hint {
+      margin: 0 0 16px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
 }
 
 .modal-footer {

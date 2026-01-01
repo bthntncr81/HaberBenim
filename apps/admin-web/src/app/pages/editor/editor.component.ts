@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -6,6 +6,7 @@ import { EditorialApiService } from '../../services/editorial-api.service';
 import { EditorialMediaApiService } from '../../services/editorial-media-api.service';
 import { PublishApiService } from '../../services/publish-api.service';
 import { BreakingApiService } from '../../services/breaking-api.service';
+import { AiVideoApiService, AiVideoJob, AiVideoGenerateRequest } from '../../services/ai-video-api.service';
 import { AuthService } from '../../services/auth.service';
 import { EditorialItem, SaveDraftRequest, CorrectionRequest } from '../../shared/editorial.models';
 import { ChannelPublishLog } from '../../shared/publish.models';
@@ -20,13 +21,14 @@ type TabType = 'x' | 'web' | 'mobile' | 'push' | 'meta';
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss'
 })
-export class EditorComponent implements OnInit {
+export class EditorComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private editorialApi = inject(EditorialApiService);
   private mediaApi = inject(EditorialMediaApiService);
   private publishApi = inject(PublishApiService);
   private breakingApi = inject(BreakingApiService);
+  private aiVideoApi = inject(AiVideoApiService);
   private authService = inject(AuthService);
 
   // Data
@@ -72,10 +74,30 @@ export class EditorComponent implements OnInit {
   breakingPriority = 100;
   breakingPushRequired = true;
 
-  // AI Generate fields
+  // AI Generate fields (Image)
   aiPromptOverride = '';
   aiStylePreset = 'news-illustration';
   aiForce = false;
+
+  // AI Video fields
+  aiVideoJob = signal<AiVideoJob | null>(null);
+  isLoadingVideoStatus = signal(false);
+  isGeneratingVideo = signal(false);
+  isCancellingVideo = signal(false);
+  showAIVideoModal = signal(false);
+  
+  // AI Video form
+  videoGenerateAiVideo = false;
+  videoMode: 'AutoPrompt' | 'CustomPrompt' = 'AutoPrompt';
+  videoPromptOverride = '';
+  videoPromptPreview = '';
+  videoModel = 'sora-2';
+  videoSeconds = '8';
+  videoSize = '1280x720';
+  videoForce = false;
+  
+  // AI Video polling interval
+  private videoPollingInterval: any = null;
 
   // Toast
   toastMessage = signal('');
@@ -99,7 +121,11 @@ export class EditorComponent implements OnInit {
     publishToX: true,
     publishToInstagram: true,
     // Instagram
-    instagramCaptionOverride: ''
+    instagramCaptionOverride: '',
+    // AI Video
+    generateAiVideo: false,
+    aiVideoMode: 'AutoPrompt' as 'AutoPrompt' | 'CustomPrompt',
+    aiVideoPromptOverride: ''
   };
 
   get canApproveRejectSchedule(): boolean {
@@ -177,7 +203,12 @@ export class EditorComponent implements OnInit {
       this.contentId.set(id);
       this.loadItem(id);
       this.loadMedia(id);
+      this.loadVideoStatus(id);
     }
+  }
+
+  ngOnDestroy(): void {
+    this.stopVideoPolling();
   }
 
   loadItem(id: string): void {
@@ -228,7 +259,11 @@ export class EditorComponent implements OnInit {
         publishToX: item.draft.publishToX ?? true,
         publishToInstagram: item.draft.publishToInstagram ?? true,
         // Instagram
-        instagramCaptionOverride: item.draft.instagramCaptionOverride || ''
+        instagramCaptionOverride: item.draft.instagramCaptionOverride || '',
+        // AI Video
+        generateAiVideo: (item.draft as any).generateAiVideo ?? false,
+        aiVideoMode: (item.draft as any).aiVideoMode || 'AutoPrompt',
+        aiVideoPromptOverride: (item.draft as any).aiVideoPromptOverride || ''
       };
     } else {
       // Use defaults from content item
@@ -247,7 +282,11 @@ export class EditorComponent implements OnInit {
         publishToMobile: true,
         publishToX: true,
         publishToInstagram: true,
-        instagramCaptionOverride: ''
+        instagramCaptionOverride: '',
+        // AI Video defaults
+        generateAiVideo: false,
+        aiVideoMode: 'AutoPrompt',
+        aiVideoPromptOverride: ''
       };
     }
   }
@@ -708,6 +747,195 @@ export class EditorComponent implements OnInit {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // AI Video Methods
+  loadVideoStatus(id: string): void {
+    this.isLoadingVideoStatus.set(true);
+    this.aiVideoApi.getStatus(id).subscribe({
+      next: (response) => {
+        this.isLoadingVideoStatus.set(false);
+        if (response.job) {
+          this.aiVideoJob.set(response.job);
+          // Start polling if in progress
+          if (response.job.status === 'Queued' || response.job.status === 'InProgress') {
+            this.startVideoPolling();
+          }
+        }
+      },
+      error: (err) => {
+        this.isLoadingVideoStatus.set(false);
+        console.error('Failed to load video status', err);
+      }
+    });
+  }
+
+  startVideoPolling(): void {
+    if (this.videoPollingInterval) return;
+    
+    this.videoPollingInterval = setInterval(() => {
+      const job = this.aiVideoJob();
+      if (!job || (job.status !== 'Queued' && job.status !== 'InProgress')) {
+        this.stopVideoPolling();
+        return;
+      }
+
+      this.aiVideoApi.getStatus(this.contentId()).subscribe({
+        next: (response) => {
+          if (response.job) {
+            this.aiVideoJob.set(response.job);
+            if (response.job.status === 'Completed') {
+              this.stopVideoPolling();
+              this.showToastMessage('AI video başarıyla oluşturuldu!', 'success');
+            } else if (response.job.status === 'Failed') {
+              this.stopVideoPolling();
+              this.showToastMessage('AI video oluşturulamadı: ' + (response.job.error || 'Bilinmeyen hata'), 'error');
+            }
+          }
+        },
+        error: () => {
+          // Ignore polling errors
+        }
+      });
+    }, 5000); // Poll every 5 seconds
+  }
+
+  stopVideoPolling(): void {
+    if (this.videoPollingInterval) {
+      clearInterval(this.videoPollingInterval);
+      this.videoPollingInterval = null;
+    }
+  }
+
+  openAIVideoModal(): void {
+    this.videoMode = 'AutoPrompt';
+    this.videoPromptOverride = '';
+    this.videoPromptPreview = '';
+    this.videoModel = 'sora-2';
+    this.videoSeconds = '8';
+    this.videoSize = '1280x720';
+    this.videoForce = false;
+    this.showAIVideoModal.set(true);
+    
+    // Load prompt preview
+    this.loadVideoPromptPreview();
+  }
+
+  closeAIVideoModal(): void {
+    this.showAIVideoModal.set(false);
+  }
+
+  loadVideoPromptPreview(): void {
+    const customPrompt = this.videoMode === 'CustomPrompt' ? this.videoPromptOverride : undefined;
+    this.aiVideoApi.getPromptPreview(this.contentId(), customPrompt).subscribe({
+      next: (response) => {
+        if (response.preview) {
+          this.videoPromptPreview = response.preview.prompt;
+        }
+      },
+      error: (err) => {
+        console.error('Failed to load prompt preview', err);
+      }
+    });
+  }
+
+  onVideoModeChange(): void {
+    if (this.videoMode === 'AutoPrompt') {
+      this.loadVideoPromptPreview();
+    } else {
+      this.videoPromptPreview = '';
+    }
+  }
+
+  generateAiVideo(): void {
+    if (this.isGeneratingVideo()) return;
+
+    this.isGeneratingVideo.set(true);
+
+    const request: AiVideoGenerateRequest = {
+      force: this.videoForce,
+      mode: this.videoMode,
+      model: this.videoModel,
+      seconds: this.videoSeconds,
+      size: this.videoSize
+    };
+
+    if (this.videoMode === 'CustomPrompt' && this.videoPromptOverride.trim()) {
+      request.promptOverride = this.videoPromptOverride.trim();
+    }
+
+    this.aiVideoApi.generate(this.contentId(), request).subscribe({
+      next: (response) => {
+        this.isGeneratingVideo.set(false);
+        this.closeAIVideoModal();
+        
+        if (response.success && response.job) {
+          this.aiVideoJob.set(response.job);
+          this.showToastMessage(response.message || 'Video üretimi başladı', 'success');
+          
+          // Start polling if job is in progress
+          if (response.job.status === 'Queued' || response.job.status === 'InProgress') {
+            this.startVideoPolling();
+          }
+        } else {
+          this.showToastMessage(response.message || 'Video üretimi başlatılamadı', 'error');
+        }
+      },
+      error: (err) => {
+        this.isGeneratingVideo.set(false);
+        const errorMsg = err.error?.message || 'AI video oluşturulamadı';
+        this.showToastMessage(errorMsg, 'error');
+      }
+    });
+  }
+
+  retryVideoGeneration(): void {
+    this.videoForce = true;
+    this.generateAiVideo();
+  }
+
+  cancelVideoGeneration(): void {
+    if (this.isCancellingVideo()) return;
+
+    this.isCancellingVideo.set(true);
+    this.aiVideoApi.cancel(this.contentId()).subscribe({
+      next: (response) => {
+        this.isCancellingVideo.set(false);
+        if (response.success) {
+          this.stopVideoPolling();
+          this.aiVideoJob.set(null);
+          this.showToastMessage('Video üretimi iptal edildi', 'success');
+        } else {
+          this.showToastMessage(response.message || 'İptal edilemedi', 'error');
+        }
+      },
+      error: (err) => {
+        this.isCancellingVideo.set(false);
+        this.showToastMessage('İptal edilemedi', 'error');
+      }
+    });
+  }
+
+  getVideoStatusLabel(status: string): string {
+    switch (status) {
+      case 'Queued': return 'Sırada';
+      case 'InProgress': return 'Üretiliyor';
+      case 'Completed': return 'Tamamlandı';
+      case 'Failed': return 'Başarısız';
+      case 'Cancelled': return 'İptal Edildi';
+      default: return status;
+    }
+  }
+
+  getVideoStatusClass(status: string): string {
+    switch (status) {
+      case 'Queued': return 'status-queued';
+      case 'InProgress': return 'status-progress';
+      case 'Completed': return 'status-completed';
+      case 'Failed': return 'status-failed';
+      case 'Cancelled': return 'status-cancelled';
+      default: return '';
+    }
   }
 
   private showToastMessage(message: string, type: 'success' | 'error'): void {

@@ -42,6 +42,16 @@ public class ContentDraft
     
     /// <summary>Style preset for AI generation: "news-illustration" default</summary>
     public string? ImageStylePreset { get; set; } = "news-illustration";
+    
+    // AI Video settings
+    /// <summary>Whether to generate AI video for this content</summary>
+    public bool GenerateAiVideo { get; set; } = false;
+    
+    /// <summary>Optional override prompt for AI video generation</summary>
+    public string? AiVideoPromptOverride { get; set; }
+    
+    /// <summary>Video prompt mode: "AutoPrompt" | "CustomPrompt"</summary>
+    public string AiVideoMode { get; set; } = "AutoPrompt";
 
     // Metadata
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;

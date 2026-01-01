@@ -16,6 +16,7 @@ using HaberPlatform.Api.Services.Publishing;
 using HaberPlatform.Api.Services.Reporting;
 using HaberPlatform.Api.Services.XIntegration;
 using HaberPlatform.Api.Services.Instagram;
+using HaberPlatform.Api.Services.Video;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -99,6 +100,12 @@ builder.Services.AddHttpClient("RssFetcher", client =>
     client.DefaultRequestHeaders.Add("User-Agent", "HaberPlatform/1.0");
     client.DefaultRequestHeaders.Add("Accept", "application/rss+xml, application/xml, text/xml");
 });
+builder.Services.AddHttpClient("ArticleFetcher", client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "HaberPlatformBot/1.0 (+contact)");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddSingleton<ArticleExtractorService>();
 builder.Services.AddSingleton<RssIngestionService>();
 builder.Services.AddHostedService<RssIngestionBackgroundService>();
 
@@ -154,6 +161,15 @@ builder.Services.AddScoped<MediaDownloadService>();
 builder.Services.AddScoped<IImageGenerator, PollinationsImageGenerator>();
 builder.Services.AddScoped<MediaPipelineService>();
 
+// OpenAI Integration Services
+builder.Services.AddHttpClient("OpenAiHttp", client =>
+{
+    client.BaseAddress = new Uri("https://api.openai.com");
+    client.DefaultRequestHeaders.Add("User-Agent", "HaberPlatform/1.0");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddScoped<OpenAiConfigService>();
+
 // X Integration Services (Sprint 9)
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "keys")))
@@ -204,6 +220,23 @@ builder.Services.AddHttpClient<InstagramApiClient>(client =>
 
 builder.Services.AddScoped<InstagramOAuthService>();
 builder.Services.AddScoped<IChannelPublisher, InstagramPublisher>();
+
+// AI Video Services (Sprint 10 - Sora)
+builder.Services.Configure<OpenAiVideoOptions>(options =>
+{
+    options.Enabled = builder.Configuration.GetValue<bool>("AIVideo:Enabled", true);
+    options.ApiKey = builder.Configuration["AIVideo:ApiKey"] ?? "";
+    options.BaseUrl = builder.Configuration["AIVideo:BaseUrl"] ?? "https://api.openai.com";
+    options.Model = builder.Configuration["AIVideo:Model"] ?? "sora-2";
+    options.Seconds = builder.Configuration["AIVideo:Seconds"] ?? "8";
+    options.Size = builder.Configuration["AIVideo:Size"] ?? "1280x720";
+    options.TimeoutSeconds = builder.Configuration.GetValue<int>("AIVideo:TimeoutSeconds", 300);
+});
+
+builder.Services.AddHttpClient<OpenAiVideoClient>();
+builder.Services.AddScoped<AiVideoPromptBuilder>();
+builder.Services.AddScoped<AiVideoService>();
+builder.Services.AddHostedService<AiVideoJobWorker>();
 
 // Configure CORS
 builder.Services.AddCors(options =>

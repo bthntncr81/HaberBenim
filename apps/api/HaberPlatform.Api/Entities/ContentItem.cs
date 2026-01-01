@@ -60,6 +60,22 @@ public class ContentItem
     public Guid? RetractedByUserId { get; set; }
     public User? RetractedByUser { get; set; }
 
+    // RSS Full-Text Enrichment (Sprint 12)
+    /// <summary>Summary HTML from RSS description</summary>
+    public string? SummaryHtml { get; set; }
+    
+    /// <summary>HTML content from RSS (content:encoded or description)</summary>
+    public string? ContentHtml { get; set; }
+    
+    /// <summary>Plain text extracted from full article</summary>
+    public string? ContentText { get; set; }
+    
+    /// <summary>Whether the original RSS content was truncated</summary>
+    public bool IsTruncated { get; set; } = false;
+    
+    /// <summary>Error message if article fetch failed</summary>
+    public string? ArticleFetchError { get; set; }
+
     // Navigation
     public ICollection<ContentMedia> Media { get; set; } = new List<ContentMedia>();
     public ICollection<ContentMediaLink> MediaLinks { get; set; } = new List<ContentMediaLink>();

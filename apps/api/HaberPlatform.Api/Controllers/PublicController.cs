@@ -69,7 +69,8 @@ public class PublicController : ControllerBase
                 p.CanonicalUrl,
                 p.SourceName,
                 p.CategoryOrGroup,
-                p.PrimaryImageUrl
+                p.PrimaryImageUrl,
+                p.PrimaryVideoUrl
             ))
             .ToListAsync();
 
@@ -104,7 +105,8 @@ public class PublicController : ControllerBase
                 p.CanonicalUrl,
                 p.SourceName,
                 p.CategoryOrGroup,
-                p.PrimaryImageUrl
+                p.PrimaryImageUrl,
+                p.PrimaryVideoUrl
             ))
             .FirstOrDefaultAsync();
 
@@ -139,7 +141,8 @@ public class PublicController : ControllerBase
                 p.CanonicalUrl,
                 p.SourceName,
                 p.CategoryOrGroup,
-                p.PrimaryImageUrl
+                p.PrimaryImageUrl,
+                p.PrimaryVideoUrl
             ))
             .FirstOrDefaultAsync();
 

@@ -8,6 +8,7 @@ export interface PublicArticleListItem {
   sourceName: string | null;
   categoryOrGroup: string | null;
   primaryImageUrl: string | null;
+  primaryVideoUrl: string | null;
 }
 
 export interface PublicArticle {
@@ -21,6 +22,7 @@ export interface PublicArticle {
   sourceName: string | null;
   categoryOrGroup: string | null;
   primaryImageUrl: string | null;
+  primaryVideoUrl: string | null;
 }
 
 export interface PublicArticleListResponse {

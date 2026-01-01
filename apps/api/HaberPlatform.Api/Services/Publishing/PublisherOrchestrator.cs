@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using HaberPlatform.Api.Data;
 using HaberPlatform.Api.Entities;
+using HaberPlatform.Api.Services.Video;
+using HaberPlatform.Api.Models;
 
 namespace HaberPlatform.Api.Services.Publishing;
 
@@ -11,16 +13,19 @@ public class PublisherOrchestrator
 {
     private readonly AppDbContext _db;
     private readonly IEnumerable<IChannelPublisher> _publishers;
+    private readonly AiVideoService? _aiVideoService;
     private readonly ILogger<PublisherOrchestrator> _logger;
 
     public PublisherOrchestrator(
         AppDbContext db,
         IEnumerable<IChannelPublisher> publishers,
-        ILogger<PublisherOrchestrator> logger)
+        ILogger<PublisherOrchestrator> logger,
+        AiVideoService? aiVideoService = null)
     {
         _db = db;
         _publishers = publishers;
         _logger = logger;
+        _aiVideoService = aiVideoService;
     }
 
     /// <summary>
@@ -115,6 +120,9 @@ public class PublisherOrchestrator
             await _db.SaveChangesAsync(ct);
             result.AllSucceeded = true;
             _logger.LogInformation("Content {ContentId} v{Version} published to all enabled channels", contentId, versionNo);
+
+            // Trigger AI video generation if enabled
+            await TriggerAiVideoGenerationAsync(item, ct);
         }
         else if (enabledChannelCount == 0)
         {
@@ -126,6 +134,41 @@ public class PublisherOrchestrator
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Trigger AI video generation after successful publish if enabled in draft
+    /// </summary>
+    private async Task TriggerAiVideoGenerationAsync(ContentItem item, CancellationToken ct)
+    {
+        if (_aiVideoService == null || !_aiVideoService.IsEnabled)
+        {
+            return;
+        }
+
+        if (item.Draft?.GenerateAiVideo != true)
+        {
+            _logger.LogDebug("AI video generation not enabled for content {ContentId}", item.Id);
+            return;
+        }
+
+        try
+        {
+            var request = new AiVideoGenerateRequest(
+                Force: false,
+                Mode: item.Draft.AiVideoMode ?? AiVideoMode.AutoPrompt,
+                PromptOverride: item.Draft.AiVideoPromptOverride
+            );
+
+            var job = await _aiVideoService.GenerateAsync(item.Id, request, ct);
+            _logger.LogInformation("Triggered AI video generation for content {ContentId}, job: {JobId}", 
+                item.Id, job.Id);
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the publish if video generation fails
+            _logger.LogWarning(ex, "Failed to trigger AI video generation for content {ContentId}", item.Id);
+        }
     }
 
     /// <summary>

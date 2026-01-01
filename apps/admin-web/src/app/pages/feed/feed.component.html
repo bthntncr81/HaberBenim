@@ -7,24 +7,17 @@
     </div>
     <div class="header-actions">
       @if (isAdmin) {
-        <button 
-          class="btn-recompute" 
-          (click)="openRecomputeModal()"
-        >
-          ⚙️ Recompute Rules
-        </button>
-        <button 
-          class="btn-rss" 
-          (click)="runRssIngestion()"
-          [disabled]="isRunningIngestion()"
-        >
-          @if (isRunningIngestion()) {
-            <span class="spinner-sm"></span>
-            Running...
-          } @else {
-            🔄 Run RSS Now
-          }
-        </button>
+      <button class="btn-recompute" (click)="openRecomputeModal()">
+        ⚙️ Recompute Rules
+      </button>
+      <button class="btn-rss" (click)="runRssIngestion()" [disabled]="isRunningIngestion()">
+        @if (isRunningIngestion()) {
+        <span class="spinner-sm"></span>
+        Running...
+        } @else {
+        🔄 Run RSS Now
+        }
+      </button>
       }
     </div>
   </header>
@@ -36,33 +29,33 @@
         <label>From Date</label>
         <input type="datetime-local" [(ngModel)]="fromUtc">
       </div>
-      
+
       <div class="filter-group">
         <label>To Date</label>
         <input type="datetime-local" [(ngModel)]="toUtc">
       </div>
-      
+
       <div class="filter-group">
         <label>Source</label>
         <select [(ngModel)]="sourceId">
           <option value="">All Sources</option>
           @for (source of sources(); track source.id) {
-            <option [value]="source.id">{{ source.name }}</option>
+          <option [value]="source.id">{{ source.name }}</option>
           }
         </select>
       </div>
-      
+
       <div class="filter-group">
         <label>Keyword</label>
         <input type="text" [(ngModel)]="keyword" placeholder="Search...">
       </div>
-      
+
       <div class="filter-group">
         <label>Status</label>
         <select [(ngModel)]="status">
           <option value="">All Status</option>
           @for (s of statusOptions; track s.value) {
-            <option [value]="s.value">{{ s.label }}</option>
+          <option [value]="s.value">{{ s.label }}</option>
           }
         </select>
       </div>
@@ -72,11 +65,11 @@
         <select [(ngModel)]="decisionType">
           <option value="">All Decisions</option>
           @for (d of decisionTypeOptions; track d.value) {
-            <option [value]="d.value">{{ d.label }}</option>
+          <option [value]="d.value">{{ d.label }}</option>
           }
         </select>
       </div>
-      
+
       <div class="filter-actions">
         <button class="btn-search" (click)="onSearch()">🔍 Search</button>
         <button class="btn-clear" (click)="onClearFilters()">Clear</button>
@@ -93,10 +86,10 @@
   <!-- Table -->
   <div class="table-container">
     @if (isLoading()) {
-      <div class="loading-overlay">
-        <div class="spinner"></div>
-        <p>Loading...</p>
-      </div>
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Loading...</p>
+    </div>
     }
 
     <table class="data-table">
@@ -114,49 +107,49 @@
       </thead>
       <tbody>
         @for (item of items(); track item.id) {
-          <tr>
-            <td class="col-date">{{ formatDate(item.publishedAtUtc) }}</td>
-            <td class="col-source">
-              <span class="source-badge">{{ item.sourceName }}</span>
-            </td>
-            <td class="col-title">{{ truncate(item.title, 50) }}</td>
-            <td class="col-decision">
-              <span class="decision-badge" [class]="getDecisionClass(item.decisionType)">
-                {{ getDecisionLabel(item.decisionType) }}
-              </span>
-            </td>
-            <td class="col-status">
-              <span class="status-badge" [class]="getStatusClass(item.status)">
-                {{ item.status }}
-              </span>
-            </td>
-            <td class="col-reason">
-              <span class="reason-text" [title]="item.decisionReason || ''">
-                {{ truncate(item.decisionReason, 25) }}
-              </span>
-            </td>
-            <td class="col-dups">
-              @if (item.duplicateCount > 0) {
-                <span class="dup-badge">{{ item.duplicateCount }}</span>
-              } @else {
-                <span class="dup-none">-</span>
-              }
-            </td>
-            <td class="col-actions">
-              <button class="btn-view" (click)="viewItem(item)">View</button>
-            </td>
-          </tr>
+        <tr>
+          <td class="col-date">{{ formatDate(item.publishedAtUtc) }}</td>
+          <td class="col-source">
+            <span class="source-badge">{{ item.sourceName }}</span>
+          </td>
+          <td class="col-title">{{ truncate(item.title, 50) }}</td>
+          <td class="col-decision">
+            <span class="decision-badge" [class]="getDecisionClass(item.decisionType)">
+              {{ getDecisionLabel(item.decisionType) }}
+            </span>
+          </td>
+          <td class="col-status">
+            <span class="status-badge" [class]="getStatusClass(item.status)">
+              {{ item.status }}
+            </span>
+          </td>
+          <td class="col-reason">
+            <span class="reason-text" [title]="item.decisionReason || ''">
+              {{ truncate(item.decisionReason, 25) }}
+            </span>
+          </td>
+          <td class="col-dups">
+            @if (item.duplicateCount > 0) {
+            <span class="dup-badge">{{ item.duplicateCount }}</span>
+            } @else {
+            <span class="dup-none">-</span>
+            }
+          </td>
+          <td class="col-actions">
+            <button class="btn-view" (click)="viewItem(item)">View</button>
+          </td>
+        </tr>
         } @empty {
-          <tr class="empty-row">
-            <td colspan="8">
-              @if (!isLoading()) {
-                <div class="empty-state">
-                  <span class="empty-icon">📭</span>
-                  <p>No items found</p>
-                </div>
-              }
-            </td>
-          </tr>
+        <tr class="empty-row">
+          <td colspan="8">
+            @if (!isLoading()) {
+            <div class="empty-state">
+              <span class="empty-icon">📭</span>
+              <p>No items found</p>
+            </div>
+            }
+          </td>
+        </tr>
         }
       </tbody>
     </table>
@@ -164,260 +157,279 @@
 
   <!-- Pagination -->
   @if (totalPages > 1) {
-    <div class="pagination">
-      <button 
-        class="btn-page" 
-        [disabled]="page() <= 1"
-        (click)="onPageChange(page() - 1)"
-      >
-        ← Previous
+  <div class="pagination">
+    <button class="btn-page" [disabled]="page() <= 1" (click)="onPageChange(page() - 1)">
+      ← Previous
+    </button>
+
+    <div class="page-numbers">
+      @for (pageNum of getPageNumbers(); track pageNum) {
+      @if (pageNum === -1) {
+      <span class="ellipsis">...</span>
+      } @else {
+      <button class="btn-page-num" [class.active]="pageNum === page()" (click)="onPageChange(pageNum)">
+        {{ pageNum }}
       </button>
-      
-      <div class="page-numbers">
-        @for (pageNum of getPageNumbers(); track pageNum) {
-          @if (pageNum === -1) {
-            <span class="ellipsis">...</span>
-          } @else {
-            <button 
-              class="btn-page-num" 
-              [class.active]="pageNum === page()"
-              (click)="onPageChange(pageNum)"
-            >
-              {{ pageNum }}
-            </button>
-          }
-        }
-      </div>
-      
-      <button 
-        class="btn-page" 
-        [disabled]="page() >= totalPages"
-        (click)="onPageChange(page() + 1)"
-      >
-        Next →
-      </button>
+      }
+      }
     </div>
+
+    <button class="btn-page" [disabled]="page() >= totalPages" (click)="onPageChange(page() + 1)">
+      Next →
+    </button>
+  </div>
   }
 </div>
 
 <!-- Detail Modal -->
 @if (showDetailModal()) {
-  <div class="modal-overlay" (click)="closeModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h2>Content Details</h2>
-        <button class="btn-close" (click)="closeModal()">✕</button>
+<div class="modal-overlay" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Content Details</h2>
+      <button class="btn-close" (click)="closeModal()">✕</button>
+    </div>
+
+    @if (isLoadingDetail()) {
+    <div class="modal-loading">
+      <div class="spinner"></div>
+      <p>Loading details...</p>
+    </div>
+    } @else if (selectedItem()) {
+    <div class="modal-body">
+      <div class="detail-section">
+        <label>Title</label>
+        <h3>{{ selectedItem()!.title }}</h3>
       </div>
-      
-      @if (isLoadingDetail()) {
-        <div class="modal-loading">
-          <div class="spinner"></div>
-          <p>Loading details...</p>
-        </div>
-      } @else if (selectedItem()) {
-        <div class="modal-body">
-          <div class="detail-section">
-            <label>Title</label>
-            <h3>{{ selectedItem()!.title }}</h3>
-          </div>
-          
-          <div class="detail-row">
-            <div class="detail-item">
-              <label>Source</label>
-              <span>{{ selectedItem()!.sourceName }}</span>
-            </div>
-            <div class="detail-item">
-              <label>Published</label>
-              <span>{{ formatDate(selectedItem()!.publishedAtUtc) }}</span>
-            </div>
-            <div class="detail-item">
-              <label>Status</label>
-              <span class="status-badge" [class]="getStatusClass(selectedItem()!.status)">
-                {{ selectedItem()!.status }}
-              </span>
-            </div>
-          </div>
 
-          <!-- Decision Info -->
-          <div class="detail-row decision-row">
-            <div class="detail-item">
-              <label>Decision</label>
-              <span class="decision-badge" [class]="getDecisionClass(selectedItem()!.decisionType)">
-                {{ getDecisionLabel(selectedItem()!.decisionType) }}
-              </span>
-            </div>
-            <div class="detail-item">
-              <label>Reason</label>
-              <span>{{ selectedItem()!.decisionReason || '-' }}</span>
-            </div>
-            @if (selectedItem()!.trustLevelSnapshot) {
-              <div class="detail-item">
-                <label>Trust Level</label>
-                <span>{{ selectedItem()!.trustLevelSnapshot }}</span>
-              </div>
-            }
-            @if (selectedItem()!.decidedAtUtc) {
-              <div class="detail-item">
-                <label>Decided At</label>
-                <span>{{ formatDate(selectedItem()!.decidedAtUtc!) }}</span>
-              </div>
-            }
-          </div>
+      <div class="detail-row">
+        <div class="detail-item">
+          <label>Source</label>
+          <span>{{ selectedItem()!.sourceName }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Published</label>
+          <span>{{ formatDate(selectedItem()!.publishedAtUtc) }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Status</label>
+          <span class="status-badge" [class]="getStatusClass(selectedItem()!.status)">
+            {{ selectedItem()!.status }}
+          </span>
+        </div>
+        @if (selectedItem()!.isTruncated) {
+        <div class="detail-item">
+          <label>Content</label>
+          <span class="truncated-badge">⚠️ Truncated</span>
+        </div>
+        }
+      </div>
 
-          @if (selectedItem()!.scheduledAtUtc) {
-            <div class="detail-section">
-              <label>Scheduled At</label>
-              <span>{{ formatDate(selectedItem()!.scheduledAtUtc!) }}</span>
-            </div>
+      <!-- Decision Info -->
+      <div class="detail-row decision-row">
+        <div class="detail-item">
+          <label>Decision</label>
+          <span class="decision-badge" [class]="getDecisionClass(selectedItem()!.decisionType)">
+            {{ getDecisionLabel(selectedItem()!.decisionType) }}
+          </span>
+        </div>
+        <div class="detail-item">
+          <label>Reason</label>
+          <span>{{ selectedItem()!.decisionReason || '-' }}</span>
+        </div>
+        @if (selectedItem()!.trustLevelSnapshot) {
+        <div class="detail-item">
+          <label>Trust Level</label>
+          <span>{{ selectedItem()!.trustLevelSnapshot }}</span>
+        </div>
+        }
+        @if (selectedItem()!.decidedAtUtc) {
+        <div class="detail-item">
+          <label>Decided At</label>
+          <span>{{ formatDate(selectedItem()!.decidedAtUtc!) }}</span>
+        </div>
+        }
+      </div>
+
+      @if (selectedItem()!.scheduledAtUtc) {
+      <div class="detail-section">
+        <label>Scheduled At</label>
+        <span>{{ formatDate(selectedItem()!.scheduledAtUtc!) }}</span>
+      </div>
+      }
+
+      @if (selectedItem()!.canonicalUrl) {
+      <div class="detail-section">
+        <label>URL</label>
+        <a [href]="selectedItem()!.canonicalUrl" target="_blank" class="url-link">
+          {{ selectedItem()!.canonicalUrl }}
+          <span class="external-icon">↗</span>
+        </a>
+      </div>
+      }
+
+      @if (selectedItem()!.summary) {
+      <div class="detail-section">
+        <label>Summary</label>
+        <p class="summary-text">{{ selectedItem()!.summary }}</p>
+      </div>
+      }
+
+      <div class="detail-section">
+        <label>Body Text (Normalized)</label>
+        <pre class="code-block">{{ selectedItem()!.bodyText }}</pre>
+      </div>
+
+      <!-- Full-Text Enrichment Info -->
+      @if (selectedItem()!.isTruncated || selectedItem()!.contentText || selectedItem()!.articleFetchError) {
+      <div class="detail-section enrichment-section">
+        <label>📄 Full-Text Enrichment</label>
+        @if (selectedItem()!.isTruncated) {
+        <div class="enrichment-warning">
+          <span class="truncated-badge">⚠️ Content is truncated</span>
+          @if (selectedItem()!.articleFetchError) {
+          <span class="fetch-error">Fetch failed: {{ selectedItem()!.articleFetchError }}</span>
           }
-          
-          @if (selectedItem()!.canonicalUrl) {
-            <div class="detail-section">
-              <label>URL</label>
-              <a [href]="selectedItem()!.canonicalUrl" target="_blank" class="url-link">
-                {{ selectedItem()!.canonicalUrl }}
-                <span class="external-icon">↗</span>
-              </a>
-            </div>
-          }
-          
-          @if (selectedItem()!.summary) {
-            <div class="detail-section">
-              <label>Summary</label>
-              <p class="summary-text">{{ selectedItem()!.summary }}</p>
-            </div>
-          }
-          
-          <div class="detail-section">
-            <label>Body Text (Normalized)</label>
-            <pre class="code-block">{{ selectedItem()!.bodyText }}</pre>
+          <button class="btn-fetch-fulltext" disabled title="Enable full-text fetch on the source to use this feature">
+            🔄 Fetch Full Text
+          </button>
+        </div>
+        } @else if (selectedItem()!.contentText) {
+        <div class="enrichment-success">
+          <span class="success-badge">✓ Full content extracted</span>
+        </div>
+        }
+      </div>
+      }
+
+      @if (selectedItem()!.contentText && selectedItem()!.contentText !== selectedItem()!.bodyText) {
+      <div class="detail-section">
+        <label>Extracted Content Text</label>
+        <pre class="code-block">{{ selectedItem()!.contentText }}</pre>
+      </div>
+      }
+
+      @if (selectedItem()!.originalText) {
+      <div class="detail-section">
+        <label>Original Text (HTML)</label>
+        <pre class="code-block html">{{ selectedItem()!.originalText }}</pre>
+      </div>
+      }
+
+      @if (selectedItem()!.media && selectedItem()!.media.length > 0) {
+      <div class="detail-section">
+        <label>Media ({{ selectedItem()!.media.length }})</label>
+        <div class="media-list">
+          @for (media of selectedItem()!.media; track media.id) {
+          <div class="media-item">
+            <span class="media-type">{{ media.mediaType }}</span>
+            <a [href]="media.url" target="_blank">{{ media.url }}</a>
           </div>
-          
-          @if (selectedItem()!.originalText) {
-            <div class="detail-section">
-              <label>Original Text (HTML)</label>
-              <pre class="code-block html">{{ selectedItem()!.originalText }}</pre>
-            </div>
-          }
-          
-          @if (selectedItem()!.media && selectedItem()!.media.length > 0) {
-            <div class="detail-section">
-              <label>Media ({{ selectedItem()!.media.length }})</label>
-              <div class="media-list">
-                @for (media of selectedItem()!.media; track media.id) {
-                  <div class="media-item">
-                    <span class="media-type">{{ media.mediaType }}</span>
-                    <a [href]="media.url" target="_blank">{{ media.url }}</a>
-                  </div>
-                }
-              </div>
-            </div>
           }
         </div>
+      </div>
       }
     </div>
+    }
   </div>
+</div>
 }
 
 <!-- Recompute Modal -->
 @if (showRecomputeModal()) {
-  <div class="modal-overlay" (click)="closeRecomputeModal()">
-    <div class="modal-content recompute-modal" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h2>Recompute Rules</h2>
-        <button class="btn-close" (click)="closeRecomputeModal()">✕</button>
+<div class="modal-overlay" (click)="closeRecomputeModal()">
+  <div class="modal-content recompute-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Recompute Rules</h2>
+      <button class="btn-close" (click)="closeRecomputeModal()">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <p class="modal-description">
+        Re-evaluate content items against the current rule set.
+        Use filters to limit scope (max 5000 items per run).
+      </p>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>From Date</label>
+          <input type="datetime-local" [(ngModel)]="recomputeForm.fromUtc">
+        </div>
+        <div class="form-group">
+          <label>To Date</label>
+          <input type="datetime-local" [(ngModel)]="recomputeForm.toUtc">
+        </div>
       </div>
-      
-      <div class="modal-body">
-        <p class="modal-description">
-          Re-evaluate content items against the current rule set. 
-          Use filters to limit scope (max 5000 items per run).
-        </p>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label>From Date</label>
-            <input type="datetime-local" [(ngModel)]="recomputeForm.fromUtc">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Source</label>
+          <select [(ngModel)]="recomputeForm.sourceId">
+            <option value="">All Sources</option>
+            @for (source of sources(); track source.id) {
+            <option [value]="source.id">{{ source.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select [(ngModel)]="recomputeForm.status">
+            <option value="">All Status</option>
+            @for (s of statusOptions; track s.value) {
+            <option [value]="s.value">{{ s.label }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      @if (recomputeResult()) {
+      <div class="recompute-result">
+        <h4>Result</h4>
+        <div class="result-stats">
+          <div class="stat">
+            <span class="stat-value">{{ recomputeResult()!.processed }}</span>
+            <span class="stat-label">Processed</span>
           </div>
-          <div class="form-group">
-            <label>To Date</label>
-            <input type="datetime-local" [(ngModel)]="recomputeForm.toUtc">
+          <div class="stat">
+            <span class="stat-value">{{ recomputeResult()!.changed }}</span>
+            <span class="stat-label">Changed</span>
           </div>
         </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label>Source</label>
-            <select [(ngModel)]="recomputeForm.sourceId">
-              <option value="">All Sources</option>
-              @for (source of sources(); track source.id) {
-                <option [value]="source.id">{{ source.name }}</option>
-              }
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Status</label>
-            <select [(ngModel)]="recomputeForm.status">
-              <option value="">All Status</option>
-              @for (s of statusOptions; track s.value) {
-                <option [value]="s.value">{{ s.label }}</option>
-              }
-            </select>
-          </div>
-        </div>
-
-        @if (recomputeResult()) {
-          <div class="recompute-result">
-            <h4>Result</h4>
-            <div class="result-stats">
-              <div class="stat">
-                <span class="stat-value">{{ recomputeResult()!.processed }}</span>
-                <span class="stat-label">Processed</span>
-              </div>
-              <div class="stat">
-                <span class="stat-value">{{ recomputeResult()!.changed }}</span>
-                <span class="stat-label">Changed</span>
-              </div>
-            </div>
-            @if (getRecomputeResultEntries().length > 0) {
-              <div class="result-breakdown">
-                <h5>By Decision Type:</h5>
-                <div class="breakdown-items">
-                  @for (entry of getRecomputeResultEntries(); track entry.key) {
-                    <span class="breakdown-item">
-                      <span class="decision-badge" [class]="entry.key.toLowerCase()">{{ entry.key }}</span>
-                      <span class="count">{{ entry.value }}</span>
-                    </span>
-                  }
-                </div>
-              </div>
+        @if (getRecomputeResultEntries().length > 0) {
+        <div class="result-breakdown">
+          <h5>By Decision Type:</h5>
+          <div class="breakdown-items">
+            @for (entry of getRecomputeResultEntries(); track entry.key) {
+            <span class="breakdown-item">
+              <span class="decision-badge" [class]="entry.key.toLowerCase()">{{ entry.key }}</span>
+              <span class="count">{{ entry.value }}</span>
+            </span>
             }
           </div>
+        </div>
         }
       </div>
+      }
+    </div>
 
-      <div class="modal-footer">
-        <button class="btn-cancel" (click)="closeRecomputeModal()">Close</button>
-        <button 
-          class="btn-run" 
-          (click)="runRecompute()"
-          [disabled]="isRecomputing()"
-        >
-          @if (isRecomputing()) {
-            <span class="spinner-sm"></span>
-            Processing...
-          } @else {
-            Run Recompute
-          }
-        </button>
-      </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" (click)="closeRecomputeModal()">Close</button>
+      <button class="btn-run" (click)="runRecompute()" [disabled]="isRecomputing()">
+        @if (isRecomputing()) {
+        <span class="spinner-sm"></span>
+        Processing...
+        } @else {
+        Run Recompute
+        }
+      </button>
     </div>
   </div>
+</div>
 }
 
 <!-- Toast -->
 @if (showToast()) {
-  <div class="toast" [class]="toastType()">
-    {{ toastMessage() }}
-  </div>
+<div class="toast" [class]="toastType()">
+  {{ toastMessage() }}
+</div>
 }

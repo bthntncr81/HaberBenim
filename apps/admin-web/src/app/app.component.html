@@ -33,7 +33,11 @@
       <nav class="sidebar-nav">
         @for (item of navItems(); track item.path) {
         <a [routerLink]="item.path" routerLinkActive="active" class="nav-item">
+          @if (item.svgIcon) {
+          <img [src]="item.svgIcon" class="nav-icon-svg" alt="">
+          } @else {
           <span class="nav-icon">{{ item.icon }}</span>
+          }
           <span class="nav-label">{{ item.label }}</span>
         </a>
         }

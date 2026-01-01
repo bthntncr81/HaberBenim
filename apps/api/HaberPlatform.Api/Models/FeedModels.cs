@@ -16,7 +16,10 @@ public record FeedItemDto(
     string? DecisionReason,
     DateTime? DecidedAtUtc,
     DateTime? ScheduledAtUtc,
-    int? TrustLevelSnapshot
+    int? TrustLevelSnapshot,
+    // RSS Full-Text Enrichment (Sprint 12)
+    bool IsTruncated,
+    string? ContentText
 );
 
 public record FeedItemDetailDto(
@@ -40,7 +43,12 @@ public record FeedItemDetailDto(
     DateTime? DecidedAtUtc,
     DateTime? ScheduledAtUtc,
     int? TrustLevelSnapshot,
-    List<MediaDto> Media
+    List<MediaDto> Media,
+    // RSS Full-Text Enrichment (Sprint 12)
+    bool IsTruncated,
+    string? ContentHtml,
+    string? ContentText,
+    string? ArticleFetchError
 );
 
 public record MediaDto(
