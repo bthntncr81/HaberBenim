@@ -125,4 +125,49 @@ export const routes: Routes = [
     canActivate: [authGuard, roleGuard],
     data: { roles: ["Admin"] },
   },
+  {
+    path: "ready-queue",
+    loadComponent: () =>
+      import("./pages/ready-queue/ready-queue.component").then(
+        (m) => m.ReadyQueueComponent
+      ),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ["Admin", "Editor"] },
+  },
+  {
+    path: "templates",
+    loadComponent: () =>
+      import("./pages/templates/templates.component").then(
+        (m) => m.TemplatesComponent
+      ),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ["Admin"] },
+  },
+  {
+    path: "templates/:id/designer",
+    loadComponent: () =>
+      import("./pages/template-designer/template-designer.component").then(
+        (m) => m.TemplateDesignerComponent
+      ),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ["Admin"] },
+  },
+  {
+    path: "publishing-settings",
+    loadComponent: () =>
+      import("./pages/publishing-settings/publishing-settings.component").then(
+        (m) => m.PublishingSettingsComponent
+      ),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ["Admin"] },
+  },
+  {
+    path: "emergency-queue",
+    loadComponent: () =>
+      import("./pages/emergency-queue/emergency-queue.component").then(
+        (m) => m.EmergencyQueueComponent
+      ),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ["Admin", "Editor"] },
+  },
 ];

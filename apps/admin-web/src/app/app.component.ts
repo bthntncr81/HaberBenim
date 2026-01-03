@@ -58,6 +58,24 @@ export class AppComponent {
       roles: ["Admin", "Editor"],
     },
     {
+      path: "/ready-queue",
+      label: "Ready Queue",
+      icon: "📤",
+      roles: ["Admin", "Editor"],
+    },
+    {
+      path: "/emergency-queue",
+      label: "Emergency",
+      icon: "🚨",
+      roles: ["Admin", "Editor"],
+    },
+    {
+      path: "/publishing-settings",
+      label: "Publish Settings",
+      icon: "⚙️",
+      roles: ["Admin"],
+    },
+    {
       path: "/analytics",
       label: "Analytics",
       icon: "📊",
@@ -96,6 +114,12 @@ export class AppComponent {
       label: "OpenAI Config",
       icon: "",
       svgIcon: "assets/icons/openai.svg",
+      roles: ["Admin"],
+    },
+    {
+      path: "/templates",
+      label: "Templates",
+      icon: "🎨",
       roles: ["Admin"],
     },
   ];

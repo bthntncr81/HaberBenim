@@ -414,6 +414,125 @@
             Active (enable ingestion)
           </label>
         </div>
+        
+        <!-- Template Assignments Section (Edit Mode Only) -->
+        @if (editingSource()) {
+          <div class="form-section templates-section">
+            <h4>🎨 Template Assignments</h4>
+            <p class="section-hint">Assign templates to this source for different platforms</p>
+            
+            <!-- Platform Tabs -->
+            <div class="platform-tabs">
+              @for (platform of platforms; track platform) {
+                <button 
+                  class="platform-tab"
+                  [class.active]="activePlatformTab() === platform"
+                  (click)="setPlatformTab(platform)"
+                >
+                  {{ platform }}
+                  <span class="count">{{ getTemplatesForPlatform(platform).length }}</span>
+                </button>
+              }
+            </div>
+            
+            <!-- Current Assignments -->
+            <div class="assignments-list">
+              @if (isLoadingTemplates()) {
+                <div class="loading-inline">
+                  <span class="spinner-xs"></span> Loading templates...
+                </div>
+              } @else {
+                @if (getTemplatesForPlatform(activePlatformTab()).length === 0) {
+                  <div class="no-templates">
+                    <span>No templates assigned for {{ activePlatformTab() }}</span>
+                  </div>
+                } @else {
+                  @for (assignment of getTemplatesForPlatform(activePlatformTab()); track assignment.id) {
+                    <div class="assignment-row" [class.inactive]="!assignment.isActive">
+                      <div class="assignment-info">
+                        <span class="template-name">{{ assignment.templateName }}</span>
+                        <span class="template-format">{{ assignment.templateFormat }}</span>
+                        <span class="template-priority">
+                          P: {{ assignment.effectivePriority }}
+                          @if (assignment.priorityOverride !== null) {
+                            (override)
+                          }
+                        </span>
+                      </div>
+                      <div class="assignment-actions">
+                        <input 
+                          type="number" 
+                          class="priority-input"
+                          [value]="assignment.priorityOverride ?? ''"
+                          placeholder="Pri"
+                          (blur)="updateAssignmentPriority(assignment, $any($event.target).value ? +$any($event.target).value : null)"
+                        >
+                        <button 
+                          class="btn-icon toggle"
+                          [class.active]="assignment.isActive"
+                          (click)="toggleAssignmentActive(assignment)"
+                          [disabled]="isTogglingAssignment() === assignment.id"
+                          [title]="assignment.isActive ? 'Disable' : 'Enable'"
+                        >
+                          @if (isTogglingAssignment() === assignment.id) {
+                            <span class="spinner-xs"></span>
+                          } @else {
+                            {{ assignment.isActive ? '✓' : '○' }}
+                          }
+                        </button>
+                        <button 
+                          class="btn-icon delete"
+                          (click)="deleteAssignment(assignment)"
+                          [disabled]="isDeletingAssignment() === assignment.id"
+                          title="Remove"
+                        >
+                          @if (isDeletingAssignment() === assignment.id) {
+                            <span class="spinner-xs"></span>
+                          } @else {
+                            🗑️
+                          }
+                        </button>
+                      </div>
+                    </div>
+                  }
+                }
+              }
+            </div>
+            
+            <!-- Add Template -->
+            <div class="add-template-row">
+              <select 
+                class="template-select"
+                [ngModel]="selectedTemplateToAdd()"
+                (ngModelChange)="selectedTemplateToAdd.set($event)"
+                [disabled]="isLoadingTemplateOptions() || isAddingAssignment()"
+              >
+                <option value="">Select a template...</option>
+                @for (tpl of getAvailableTemplatesForPlatform(activePlatformTab()); track tpl.id) {
+                  <option [value]="tpl.id">{{ tpl.name }} ({{ tpl.format }}) - P:{{ tpl.priority }}</option>
+                }
+              </select>
+              <input 
+                type="number"
+                class="priority-input"
+                placeholder="Priority"
+                [ngModel]="newPriorityOverride()"
+                (ngModelChange)="newPriorityOverride.set($event)"
+              >
+              <button 
+                class="btn-add-assignment"
+                (click)="addTemplateAssignment()"
+                [disabled]="!selectedTemplateToAdd() || isAddingAssignment()"
+              >
+                @if (isAddingAssignment()) {
+                  <span class="spinner-xs"></span>
+                } @else {
+                  + Add
+                }
+              </button>
+            </div>
+          </div>
+        }
       </div>
       <div class="modal-footer">
         <button class="btn-cancel" (click)="closeModal()">Cancel</button>

@@ -5,9 +5,31 @@ using HaberPlatform.Api.Entities;
 namespace HaberPlatform.Api.Services.Publishing;
 
 /// <summary>
+/// Interface for publish service operations
+/// </summary>
+public interface IPublishService
+{
+    Task<EnqueueResult> EnqueueAsync(
+        Guid contentId, 
+        Guid? userId = null, 
+        int? versionNo = null, 
+        DateTime? scheduledAtUtc = null,
+        string? publishOrigin = null,
+        CancellationToken ct = default);
+    
+    Task<Guid> CreateEmergencyPublishJobAsync(
+        Guid contentId,
+        int versionNo,
+        List<string> platforms,
+        CancellationToken ct = default);
+    
+    Task<int> CancelPendingJobsAsync(Guid contentId, CancellationToken ct = default);
+}
+
+/// <summary>
 /// Service for managing publish jobs
 /// </summary>
-public class PublishJobService
+public class PublishJobService : IPublishService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<PublishJobService> _logger;
@@ -132,6 +154,52 @@ public class PublishJobService
             pendingJobs.Count, contentId);
 
         return pendingJobs.Count;
+    }
+
+    /// <summary>
+    /// Create an emergency publish job with highest priority
+    /// </summary>
+    public async Task<Guid> CreateEmergencyPublishJobAsync(
+        Guid contentId,
+        int versionNo,
+        List<string> platforms,
+        CancellationToken ct = default)
+    {
+        var item = await _db.ContentItems.FindAsync([contentId], ct);
+        if (item == null)
+        {
+            throw new InvalidOperationException($"Content item {contentId} not found");
+        }
+
+        // Cancel any existing pending jobs
+        await CancelPendingJobsAsync(contentId, ct);
+
+        // Create emergency job with immediate schedule
+        var job = new PublishJob
+        {
+            Id = Guid.NewGuid(),
+            ContentItemId = contentId,
+            ScheduledAtUtc = DateTime.UtcNow, // Immediate
+            VersionNo = versionNo,
+            Status = PublishJobStatuses.Pending,
+            IsEmergency = true,
+            TargetPlatformsCsv = string.Join(",", platforms),
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        _db.PublishJobs.Add(job);
+        
+        // Update content status
+        item.Status = ContentStatuses.Published;
+        item.PublishOrigin = "Emergency";
+        
+        await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Created emergency publish job {JobId} for content {ContentId} to platforms {Platforms}",
+            job.Id, contentId, string.Join(",", platforms));
+
+        return job.Id;
     }
 }
 

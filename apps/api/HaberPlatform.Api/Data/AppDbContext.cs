@@ -53,6 +53,20 @@ public class AppDbContext : DbContext
     
     // Instagram Integration (Sprint 11)
     public DbSet<InstagramConnection> InstagramConnections => Set<InstagramConnection>();
+    
+    // Templates (Sprint 14)
+    public DbSet<PublishTemplate> PublishTemplates => Set<PublishTemplate>();
+    public DbSet<PublishTemplateSpec> PublishTemplateSpecs => Set<PublishTemplateSpec>();
+    public DbSet<TemplateAsset> TemplateAssets => Set<TemplateAsset>();
+    
+    // Source Template Assignments (Sprint 15)
+    public DbSet<SourceTemplateAssignment> SourceTemplateAssignments => Set<SourceTemplateAssignment>();
+    
+    // Render Jobs (Sprint 16)
+    public DbSet<RenderJob> RenderJobs => Set<RenderJob>();
+    
+    // Emergency Queue (Sprint 18)
+    public DbSet<EmergencyQueueItem> EmergencyQueueItems => Set<EmergencyQueueItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -648,6 +662,148 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.ContentItemId);
             entity.HasIndex(e => new { e.Status, e.CreatedAtUtc });
+        });
+
+        // PublishTemplate (Sprint 14)
+        modelBuilder.Entity<PublishTemplate>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Platform).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Format).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Priority).HasDefaultValue(100);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.RuleJson);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+            entity.Property(e => e.UpdatedAtUtc).IsRequired();
+
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.Platform);
+            entity.HasIndex(e => e.Format);
+            entity.HasIndex(e => new { e.Platform, e.Format, e.IsActive });
+            entity.HasIndex(e => new { e.IsActive, e.Priority });
+        });
+
+        // PublishTemplateSpec (Sprint 14)
+        modelBuilder.Entity<PublishTemplateSpec>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.VisualSpecJson);
+            entity.Property(e => e.TextSpecJson);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+            entity.Property(e => e.UpdatedAtUtc).IsRequired();
+
+            entity.HasOne(e => e.Template)
+                .WithOne(t => t.Spec)
+                .HasForeignKey<PublishTemplateSpec>(e => e.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.TemplateId).IsUnique();
+        });
+
+        // TemplateAsset (Sprint 14)
+        modelBuilder.Entity<TemplateAsset>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Key).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ContentType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.StoragePath).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Width).IsRequired();
+            entity.Property(e => e.Height).IsRequired();
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+
+            entity.HasIndex(e => e.Key).IsUnique();
+        });
+
+        // SourceTemplateAssignment (Sprint 15)
+        modelBuilder.Entity<SourceTemplateAssignment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Platform).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Mode).IsRequired().HasMaxLength(50).HasDefaultValue("Auto");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+            entity.Property(e => e.UpdatedAtUtc).IsRequired();
+
+            entity.HasOne(e => e.Source)
+                .WithMany()
+                .HasForeignKey(e => e.SourceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Template)
+                .WithMany()
+                .HasForeignKey(e => e.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Unique: SourceId + Platform + TemplateId
+            entity.HasIndex(e => new { e.SourceId, e.Platform, e.TemplateId }).IsUnique();
+            entity.HasIndex(e => new { e.SourceId, e.Platform, e.IsActive });
+            entity.HasIndex(e => e.TemplateId);
+        });
+
+        // RenderJob (Sprint 16 + Sprint 17 video support)
+        modelBuilder.Entity<RenderJob>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Platform).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Format).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50).HasDefaultValue("Queued");
+            entity.Property(e => e.OutputType).IsRequired().HasMaxLength(20).HasDefaultValue("Image");
+            entity.Property(e => e.Progress).HasDefaultValue(0);
+            entity.Property(e => e.ResolvedTextSpecJson);
+            entity.Property(e => e.Error);
+            entity.Property(e => e.CreatedAtUtc).IsRequired();
+            entity.Property(e => e.UpdatedAtUtc).IsRequired();
+
+            entity.HasOne(e => e.ContentItem)
+                .WithMany()
+                .HasForeignKey(e => e.ContentItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Template)
+                .WithMany()
+                .HasForeignKey(e => e.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.OutputMediaAsset)
+                .WithMany()
+                .HasForeignKey(e => e.OutputMediaAssetId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.SourceVideoAsset)
+                .WithMany()
+                .HasForeignKey(e => e.SourceVideoAssetId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ContentItemId);
+            entity.HasIndex(e => new { e.ContentItemId, e.Platform, e.Status });
+            entity.HasIndex(e => e.OutputType);
+        });
+
+        // EmergencyQueueItem (Sprint 18)
+        modelBuilder.Entity<EmergencyQueueItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.MatchedKeywordsCsv).HasMaxLength(500);
+            entity.Property(e => e.DetectionReason).HasMaxLength(500);
+            entity.Property(e => e.TargetPlatformsCsv).HasMaxLength(200);
+            entity.Property(e => e.DetectedAtUtc).IsRequired();
+
+            entity.HasOne(e => e.ContentItem)
+                .WithMany()
+                .HasForeignKey(e => e.ContentItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ProcessedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.ProcessedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ContentItemId);
+            entity.HasIndex(e => new { e.Status, e.Priority });
         });
     }
 }

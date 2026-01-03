@@ -17,6 +17,7 @@ using HaberPlatform.Api.Services.Reporting;
 using HaberPlatform.Api.Services.XIntegration;
 using HaberPlatform.Api.Services.Instagram;
 using HaberPlatform.Api.Services.Video;
+using HaberPlatform.Api.Services.Templates;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -119,8 +120,14 @@ builder.Services.AddScoped<IChannelPublisher, MobilePublisher>();
 builder.Services.AddScoped<IChannelPublisher, XPublisher>();
 builder.Services.AddScoped<PublisherOrchestrator>();
 builder.Services.AddScoped<PublishJobService>();
+builder.Services.AddScoped<IPublishService>(sp => sp.GetRequiredService<PublishJobService>());
 builder.Services.AddSingleton<PublishJobWorker>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PublishJobWorker>());
+
+// Publishing Policy & Scheduling (Sprint 18)
+builder.Services.AddScoped<IPublishingPolicyService, PublishingPolicyService>();
+builder.Services.AddScoped<IPublishScheduler, PublishScheduler>();
+builder.Services.AddScoped<IEmergencyDetector, EmergencyDetector>();
 
 // Reporting Configuration (Sprint 7)
 builder.Services.Configure<ReportsOptions>(
@@ -237,6 +244,23 @@ builder.Services.AddHttpClient<OpenAiVideoClient>();
 builder.Services.AddScoped<AiVideoPromptBuilder>();
 builder.Services.AddScoped<AiVideoService>();
 builder.Services.AddHostedService<AiVideoJobWorker>();
+
+// Template Services (Sprint 14)
+builder.Services.AddScoped<ITemplateVariableResolver, TemplateVariableResolver>();
+builder.Services.AddScoped<ITemplatePreviewRenderer, TemplatePreviewRenderer>();
+
+// Template Selector Services (Sprint 15)
+builder.Services.AddScoped<ITemplateRuleEvaluator, TemplateRuleEvaluator>();
+builder.Services.AddScoped<ITemplateSelector, TemplateSelector>();
+
+// Template Render Services (Sprint 16)
+builder.Services.AddScoped<ITemplateRenderService, TemplateRenderService>();
+builder.Services.AddHostedService<RenderJobWorker>();
+
+// Video Render Services (Sprint 17)
+builder.Services.Configure<VideoRenderOptions>(builder.Configuration.GetSection("VideoRender"));
+builder.Services.AddScoped<IVideoRenderer, VideoRenderer>();
+builder.Services.AddHostedService<FfmpegStartupCheck>();
 
 // Configure CORS
 builder.Services.AddCors(options =>

@@ -4,6 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { SourceApiService } from '../../services/source-api.service';
 import {
+    SourceTemplateApiService,
+    SourceTemplateAssignmentDto,
+    TemplateOptionDto
+} from '../../services/source-template-api.service';
+import {
     Categories,
     DefaultBehaviors,
     FullTextExtractModes,
@@ -28,10 +33,24 @@ interface SourceWithState extends SourceListItem {
 })
 export class SourcesComponent implements OnInit {
   private sourceApi = inject(SourceApiService);
+  private sourceTemplateApi = inject(SourceTemplateApiService);
   private authService = inject(AuthService);
 
   // Role check
   isAdmin = computed(() => this.authService.hasRole('Admin'));
+
+  // Template assignment
+  platforms = ['Instagram', 'X', 'TikTok', 'YouTube'];
+  activePlatformTab = signal<string>('Instagram');
+  sourceTemplates = signal<SourceTemplateAssignmentDto[]>([]);
+  platformTemplateOptions = signal<TemplateOptionDto[]>([]);
+  isLoadingTemplates = signal(false);
+  isLoadingTemplateOptions = signal(false);
+  isAddingAssignment = signal(false);
+  isDeletingAssignment = signal<string | null>(null);
+  isTogglingAssignment = signal<string | null>(null);
+  selectedTemplateToAdd = signal<string>('');
+  newPriorityOverride = signal<number | null>(null);
 
   // Data
   sources = signal<SourceWithState[]>([]);
@@ -218,6 +237,10 @@ export class SourcesComponent implements OnInit {
           fullTextExtractMode: detail.fullTextExtractMode
         };
         this.showEditModal.set(true);
+        
+        // Load template assignments for this source
+        this.loadTemplatesForSource(detail.id);
+        this.loadTemplateOptionsForPlatform(this.activePlatformTab());
       },
       error: () => {
         this.showToastMessage('Failed to load source details', 'error');
@@ -442,5 +465,143 @@ export class SourcesComponent implements OnInit {
     this.toastType.set(type);
     this.showToast.set(true);
     setTimeout(() => this.showToast.set(false), 4000);
+  }
+
+  // Template Assignment Methods
+  setPlatformTab(platform: string): void {
+    this.activePlatformTab.set(platform);
+    const source = this.editingSource();
+    if (source) {
+      this.loadTemplateOptionsForPlatform(platform);
+    }
+  }
+
+  loadTemplatesForSource(sourceId: string): void {
+    this.isLoadingTemplates.set(true);
+    this.sourceTemplateApi.getBySource(sourceId).subscribe({
+      next: (response) => {
+        this.sourceTemplates.set(response.items || []);
+        this.isLoadingTemplates.set(false);
+      },
+      error: () => {
+        this.sourceTemplates.set([]);
+        this.isLoadingTemplates.set(false);
+      }
+    });
+  }
+
+  loadTemplateOptionsForPlatform(platform: string): void {
+    this.isLoadingTemplateOptions.set(true);
+    this.sourceTemplateApi.getTemplatesForPlatform(platform).subscribe({
+      next: (response) => {
+        this.platformTemplateOptions.set(response.items || []);
+        this.isLoadingTemplateOptions.set(false);
+      },
+      error: () => {
+        this.platformTemplateOptions.set([]);
+        this.isLoadingTemplateOptions.set(false);
+      }
+    });
+  }
+
+  getTemplatesForPlatform(platform: string): SourceTemplateAssignmentDto[] {
+    return this.sourceTemplates().filter(t => t.platform === platform);
+  }
+
+  getAvailableTemplatesForPlatform(platform: string): TemplateOptionDto[] {
+    const assigned = this.getTemplatesForPlatform(platform);
+    const assignedIds = new Set(assigned.map(a => a.templateId));
+    return this.platformTemplateOptions().filter(t => 
+      t.platform === platform && !assignedIds.has(t.id)
+    );
+  }
+
+  addTemplateAssignment(): void {
+    const source = this.editingSource();
+    const templateId = this.selectedTemplateToAdd();
+    const platform = this.activePlatformTab();
+    
+    if (!source || !templateId) return;
+
+    this.isAddingAssignment.set(true);
+    this.sourceTemplateApi.create({
+      sourceId: source.id,
+      platform: platform,
+      templateId: templateId,
+      priorityOverride: this.newPriorityOverride() || null,
+      isActive: true
+    }).subscribe({
+      next: () => {
+        this.isAddingAssignment.set(false);
+        this.selectedTemplateToAdd.set('');
+        this.newPriorityOverride.set(null);
+        this.showToastMessage('Template assigned successfully', 'success');
+        this.loadTemplatesForSource(source.id);
+      },
+      error: (err) => {
+        this.isAddingAssignment.set(false);
+        this.showToastMessage(err.error?.error || 'Failed to assign template', 'error');
+      }
+    });
+  }
+
+  toggleAssignmentActive(assignment: SourceTemplateAssignmentDto): void {
+    if (this.isTogglingAssignment()) return;
+
+    this.isTogglingAssignment.set(assignment.id);
+    this.sourceTemplateApi.update(assignment.id, { isActive: !assignment.isActive }).subscribe({
+      next: () => {
+        this.isTogglingAssignment.set(null);
+        const source = this.editingSource();
+        if (source) {
+          this.loadTemplatesForSource(source.id);
+        }
+        this.showToastMessage(
+          `Template ${assignment.isActive ? 'disabled' : 'enabled'}`,
+          'success'
+        );
+      },
+      error: () => {
+        this.isTogglingAssignment.set(null);
+        this.showToastMessage('Failed to toggle template status', 'error');
+      }
+    });
+  }
+
+  updateAssignmentPriority(assignment: SourceTemplateAssignmentDto, priority: number | null): void {
+    this.sourceTemplateApi.update(assignment.id, { priorityOverride: priority }).subscribe({
+      next: () => {
+        const source = this.editingSource();
+        if (source) {
+          this.loadTemplatesForSource(source.id);
+        }
+        this.showToastMessage('Priority updated', 'success');
+      },
+      error: () => {
+        this.showToastMessage('Failed to update priority', 'error');
+      }
+    });
+  }
+
+  deleteAssignment(assignment: SourceTemplateAssignmentDto): void {
+    if (this.isDeletingAssignment()) return;
+
+    if (!confirm(`Remove "${assignment.templateName}" assignment?`)) return;
+
+    this.isDeletingAssignment.set(assignment.id);
+    this.sourceTemplateApi.delete(assignment.id).subscribe({
+      next: () => {
+        this.isDeletingAssignment.set(null);
+        const source = this.editingSource();
+        if (source) {
+          this.loadTemplatesForSource(source.id);
+        }
+        this.showToastMessage('Assignment removed', 'success');
+      },
+      error: () => {
+        this.isDeletingAssignment.set(null);
+        this.showToastMessage('Failed to remove assignment', 'error');
+      }
+    });
   }
 }

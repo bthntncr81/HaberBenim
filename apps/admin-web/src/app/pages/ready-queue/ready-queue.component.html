@@ -1,0 +1,323 @@
+<div class="page">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1>📤 Ready Queue</h1>
+      <p>Content ready for publishing with rendered templates</p>
+    </div>
+    @if (settings(); as s) {
+      <div class="settings-badge">
+        <span class="mode-label">Mode:</span>
+        <span class="mode-value" [class]="s.publishMode.toLowerCase()">{{ s.publishMode }}</span>
+        @if (isAdmin()) {
+          <select 
+            [ngModel]="s.publishMode" 
+            (ngModelChange)="updatePublishMode($event)"
+            [disabled]="updatingSettings()"
+            class="mode-select"
+          >
+            @for (mode of s.modes; track mode) {
+              <option [value]="mode">{{ mode }}</option>
+            }
+          </select>
+        }
+      </div>
+    }
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-card">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label>Platform</label>
+        <select [(ngModel)]="platformFilter" (ngModelChange)="onFilterChange()">
+          <option value="">All Platforms</option>
+          @for (platform of platforms; track platform) {
+            <option [value]="platform">{{ getPlatformIcon(platform) }} {{ platform }}</option>
+          }
+        </select>
+      </div>
+      <div class="filter-info">
+        <span class="count">{{ total() }} items in queue</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Loading queue...</span>
+    </div>
+  } @else if (error()) {
+    <div class="error-state">
+      <span>{{ error() }}</span>
+      <button class="btn-retry" (click)="loadItems()">Retry</button>
+    </div>
+  } @else if (items().length === 0) {
+    <div class="empty-state">
+      <span class="empty-icon">📭</span>
+      <p>No items in ready queue</p>
+      <span class="empty-hint">Items will appear here after template rendering</span>
+    </div>
+  } @else {
+    <div class="queue-list">
+      @for (item of items(); track item.id) {
+        <div class="queue-card">
+          <!-- Thumbnail -->
+          <div class="card-thumbnail">
+            @if (getFirstRenderOutput(item); as output) {
+              @if (output.isVideo) {
+                <video muted playsinline preload="metadata" class="thumb-video">
+                  <source [src]="output.url" type="video/mp4">
+                </video>
+                <span class="video-badge">▶</span>
+              } @else {
+                <img [src]="output.url" [alt]="item.title" loading="lazy">
+              }
+            } @else if (item.primaryImageUrl) {
+              <img [src]="item.primaryImageUrl" [alt]="item.title" loading="lazy">
+            } @else {
+              <div class="no-image">
+                <span>🖼️</span>
+              </div>
+            }
+          </div>
+
+          <!-- Content -->
+          <div class="card-content">
+            <div class="card-header">
+              <h3 (click)="goToEditor(item.id)" class="clickable">{{ item.title }}</h3>
+              <div class="card-meta">
+                <span class="source">{{ item.sourceName }}</span>
+                <span class="category">{{ item.category }}</span>
+                <span class="time">{{ formatRelativeTime(item.createdAtUtc) }}</span>
+              </div>
+            </div>
+
+            <!-- Render Jobs -->
+            <div class="render-jobs">
+              @for (job of item.renderJobs; track job.id) {
+                <div class="render-job" [class]="getStatusClass(job.status)">
+                  <span class="platform-icon">{{ getPlatformIcon(job.platform) }}</span>
+                  <span class="template-name">{{ job.templateName }}</span>
+                  <span class="format">{{ job.format }}</span>
+                  @if (job.outputType === 'Video') {
+                    <span class="type-badge video">🎬</span>
+                  } @else {
+                    <span class="type-badge image">🖼️</span>
+                  }
+                  @if (job.status === 'Rendering' && job.progress > 0) {
+                    <span class="progress">{{ job.progress }}%</span>
+                  } @else {
+                    <span class="status">{{ getStatusLabel(job.status) }}</span>
+                  }
+                  @if (job.outputUrl) {
+                    <button class="btn-preview" (click)="openDetail(item)" title="Preview">
+                      👁️
+                    </button>
+                  }
+                </div>
+              }
+              @if (item.renderJobs.length === 0) {
+                <div class="no-renders">
+                  <span>No renders yet</span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="card-actions">
+            <button 
+              class="btn-edit"
+              (click)="goToEditor(item.id)"
+              title="Edit in Editor"
+            >
+              ✏️
+            </button>
+            <button 
+              class="btn-detail"
+              (click)="openDetail(item)"
+              title="View Details"
+            >
+              👁️
+            </button>
+            <button 
+              class="btn-publish"
+              (click)="publish(item)"
+              [disabled]="publishingId() === item.id || !hasCompletedRenders(item)"
+              title="Publish to all platforms"
+            >
+              @if (publishingId() === item.id) {
+                <span class="spinner-sm"></span>
+              } @else {
+                🚀
+              }
+              Publish
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <div class="pagination">
+      <button 
+        class="btn-page" 
+        [disabled]="page() <= 1"
+        (click)="onPageChange(page() - 1)"
+      >
+        ← Previous
+      </button>
+      
+      <div class="page-numbers">
+        @for (pageNum of getPageNumbers(); track pageNum) {
+          @if (pageNum === -1) {
+            <span class="ellipsis">...</span>
+          } @else {
+            <button 
+              class="btn-page-num" 
+              [class.active]="pageNum === page()"
+              (click)="onPageChange(pageNum)"
+            >
+              {{ pageNum }}
+            </button>
+          }
+        }
+      </div>
+      
+      <button 
+        class="btn-page" 
+        [disabled]="page() >= totalPages"
+        (click)="onPageChange(page() + 1)"
+      >
+        Next →
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Detail Modal -->
+@if (showDetailModal() && selectedItem(); as item) {
+  <div class="modal-overlay" (click)="closeDetailModal()">
+    <div class="modal-content modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>📋 Render Details</h2>
+        <button class="btn-close" (click)="closeDetailModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-header">
+          <h3>{{ item.title }}</h3>
+          <div class="detail-meta">
+            <span>{{ item.sourceName }}</span>
+            <span>{{ item.category }}</span>
+          </div>
+        </div>
+
+        <div class="renders-detail">
+          @for (job of item.renderJobs; track job.id) {
+            <div class="render-detail-card">
+              <div class="render-header">
+                <span class="platform">{{ getPlatformIcon(job.platform) }} {{ job.platform }}</span>
+                <span class="template">{{ job.templateName }}</span>
+                <span class="format-badge">{{ job.format }}</span>
+                <span class="status-badge" [class]="getStatusClass(job.status)">
+                  {{ getStatusLabel(job.status) }}
+                </span>
+              </div>
+
+              @if (job.outputUrl) {
+                <div class="render-preview">
+                  @if (job.outputType === 'Video') {
+                    <video controls playsinline preload="metadata" class="video-preview">
+                      <source [src]="job.outputUrl" type="video/mp4">
+                      Your browser does not support the video tag.
+                    </video>
+                  } @else {
+                    <img [src]="job.outputUrl" [alt]="job.templateName" loading="lazy">
+                  }
+                </div>
+              }
+
+              @if (job.resolvedTextSpecJson) {
+                <div class="resolved-text">
+                  @if (parseResolvedText(job.resolvedTextSpecJson); as texts) {
+                    @if (job.platform === 'Instagram' && texts['instagramCaption']) {
+                      <div class="text-block">
+                        <label>Instagram Caption</label>
+                        <pre>{{ texts['instagramCaption'] }}</pre>
+                      </div>
+                    }
+                    @if (job.platform === 'X' && texts['xText']) {
+                      <div class="text-block">
+                        <label>X/Twitter Text</label>
+                        <pre>{{ texts['xText'] }}</pre>
+                      </div>
+                    }
+                    @if (job.platform === 'TikTok' && texts['tiktokHook']) {
+                      <div class="text-block">
+                        <label>TikTok Hook</label>
+                        <pre>{{ texts['tiktokHook'] }}</pre>
+                      </div>
+                    }
+                    @if (job.platform === 'YouTube') {
+                      @if (texts['youtubeTitle']) {
+                        <div class="text-block">
+                          <label>YouTube Title</label>
+                          <pre>{{ texts['youtubeTitle'] }}</pre>
+                        </div>
+                      }
+                      @if (texts['youtubeDescription']) {
+                        <div class="text-block">
+                          <label>YouTube Description</label>
+                          <pre>{{ texts['youtubeDescription'] }}</pre>
+                        </div>
+                      }
+                    }
+                  }
+                </div>
+              }
+
+              @if (job.error) {
+                <div class="render-error">
+                  <span class="error-icon">⚠️</span>
+                  <span class="error-text">{{ job.error }}</span>
+                </div>
+              }
+
+              <div class="render-footer">
+                <span>Created: {{ formatDate(job.createdAtUtc) }}</span>
+                @if (job.completedAtUtc) {
+                  <span>Completed: {{ formatDate(job.completedAtUtc) }}</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="goToEditor(item.id)">
+          ✏️ Open in Editor
+        </button>
+        <button 
+          class="btn-primary"
+          (click)="publish(item); closeDetailModal()"
+          [disabled]="!hasCompletedRenders(item)"
+        >
+          🚀 Publish Now
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}
+

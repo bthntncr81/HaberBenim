@@ -1,0 +1,284 @@
+<div class="page">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1>⚙️ Publishing Settings</h1>
+      <p>Configure publishing schedules, limits, and emergency rules</p>
+    </div>
+    <button class="btn-save" (click)="save()" [disabled]="isSaving() || !policy()">
+      @if (isSaving()) {
+        <span class="spinner-sm"></span> Saving...
+      } @else {
+        💾 Save All
+      }
+    </button>
+  </header>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Loading settings...</span>
+    </div>
+  } @else if (error()) {
+    <div class="error-state">
+      <span>{{ error() }}</span>
+      <button class="btn-retry" (click)="loadData()">Retry</button>
+    </div>
+  } @else if (policy()) {
+    <!-- Tabs -->
+    <div class="tabs">
+      <button 
+        class="tab" 
+        [class.active]="activeTab() === 'platforms'"
+        (click)="activeTab.set('platforms')"
+      >
+        📅 Platform Settings
+      </button>
+      <button 
+        class="tab" 
+        [class.active]="activeTab() === 'emergency'"
+        (click)="activeTab.set('emergency')"
+      >
+        🚨 Emergency Rules
+      </button>
+    </div>
+
+    @if (activeTab() === 'platforms') {
+      <div class="settings-layout">
+        <!-- Platform Selector -->
+        <aside class="platform-list">
+          <h3>Platforms</h3>
+          @for (platform of platforms; track platform) {
+            <button 
+              class="platform-item"
+              [class.selected]="selectedPlatform() === platform"
+              [class.disabled]="!policy()!.platforms[platform]?.isEnabled"
+              (click)="selectPlatform(platform)"
+            >
+              <span class="platform-icon">{{ getPlatformIcon(platform) }}</span>
+              <span class="platform-name">{{ platform }}</span>
+              @if (getPlatformStats(platform); as stats) {
+                <span class="platform-stats" [class.at-limit]="stats.isAtLimit">
+                  {{ stats.count }}/{{ stats.limit || '∞' }}
+                </span>
+              }
+              @if (!policy()!.platforms[platform]?.isEnabled) {
+                <span class="disabled-badge">OFF</span>
+              }
+            </button>
+          }
+        </aside>
+
+        <!-- Platform Settings -->
+        <main class="settings-panel">
+          @if (currentPlatformPolicy(); as pp) {
+            <div class="panel-header">
+              <h2>{{ getPlatformIcon(selectedPlatform()) }} {{ selectedPlatform() }} Settings</h2>
+              <label class="toggle-label">
+                <input 
+                  type="checkbox" 
+                  [checked]="pp.isEnabled"
+                  (change)="updatePlatformEnabled($any($event.target).checked)"
+                >
+                <span class="toggle-text">{{ pp.isEnabled ? 'Enabled' : 'Disabled' }}</span>
+              </label>
+            </div>
+
+            <!-- Allowed Windows -->
+            <section class="settings-section">
+              <h3>📆 Allowed Publishing Hours</h3>
+              <p class="section-desc">Define when content can be published</p>
+              
+              <div class="windows-list">
+                @for (window of pp.allowedWindows; track window; let i = $index) {
+                  <div class="window-row">
+                    <input 
+                      type="time" 
+                      [ngModel]="window.start"
+                      (ngModelChange)="updateWindowStart(i, $event)"
+                    >
+                    <span class="window-to">to</span>
+                    <input 
+                      type="time" 
+                      [ngModel]="window.end"
+                      (ngModelChange)="updateWindowEnd(i, $event)"
+                    >
+                    <button class="btn-remove" (click)="removeWindow(i)" title="Remove">×</button>
+                  </div>
+                }
+                @if (pp.allowedWindows.length === 0) {
+                  <p class="no-windows">No windows defined (24/7 publishing)</p>
+                }
+              </div>
+              <button class="btn-add" (click)="addWindow()">+ Add Window</button>
+            </section>
+
+            <!-- Limits -->
+            <section class="settings-section">
+              <h3>🔢 Limits</h3>
+              
+              <div class="form-row">
+                <label>Daily Limit</label>
+                <div class="input-with-hint">
+                  <input 
+                    type="number" 
+                    min="0"
+                    [ngModel]="pp.dailyLimit"
+                    (ngModelChange)="updateDailyLimit($event)"
+                  >
+                  <span class="hint">0 = unlimited</span>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label>Min Interval (minutes)</label>
+                <div class="input-with-hint">
+                  <input 
+                    type="number" 
+                    min="0"
+                    [ngModel]="pp.minIntervalMinutes"
+                    (ngModelChange)="updateMinInterval($event)"
+                  >
+                  <span class="hint">Rate limiting between posts</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- Night Mode -->
+            <section class="settings-section">
+              <h3>🌙 Night Mode</h3>
+              <p class="section-desc">Configure behavior during night hours</p>
+
+              <div class="form-row">
+                <label>Night Hours</label>
+                <div class="time-range">
+                  <input 
+                    type="time" 
+                    [ngModel]="pp.nightMode.start"
+                    (ngModelChange)="updateNightModeStart($event)"
+                  >
+                  <span>to</span>
+                  <input 
+                    type="time" 
+                    [ngModel]="pp.nightMode.end"
+                    (ngModelChange)="updateNightModeEnd($event)"
+                  >
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label class="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    [checked]="pp.nightMode.silencePush"
+                    (change)="updateNightModeSilencePush($any($event.target).checked)"
+                  >
+                  Silence push notifications during night
+                </label>
+              </div>
+
+              <div class="form-row">
+                <label class="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    [checked]="pp.nightMode.queueForMorning"
+                    (change)="updateNightModeQueueForMorning($any($event.target).checked)"
+                  >
+                  Queue non-emergency content for morning
+                </label>
+              </div>
+            </section>
+
+            <!-- Emergency -->
+            <section class="settings-section">
+              <h3>🚨 Emergency Override</h3>
+              <div class="form-row">
+                <label class="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    [checked]="pp.emergencyOverride"
+                    (change)="updateEmergencyOverride($any($event.target).checked)"
+                  >
+                  Allow emergency content to bypass schedule
+                </label>
+              </div>
+            </section>
+          }
+        </main>
+      </div>
+    }
+
+    @if (activeTab() === 'emergency') {
+      <div class="emergency-settings">
+        <!-- Keywords -->
+        <section class="settings-section">
+          <h3>🔑 Emergency Keywords</h3>
+          <p class="section-desc">Content matching these keywords will be flagged as emergency (one per line)</p>
+          <textarea 
+            class="keywords-input"
+            rows="10"
+            [ngModel]="getKeywordsText()"
+            (ngModelChange)="updateKeywords($event)"
+            placeholder="son dakika&#10;acil&#10;flaş&#10;deprem"
+          ></textarea>
+        </section>
+
+        <!-- Categories -->
+        <section class="settings-section">
+          <h3>📂 Emergency Categories</h3>
+          <p class="section-desc">Categories that are always treated as potential emergency (one per line)</p>
+          <textarea 
+            class="keywords-input"
+            rows="5"
+            [ngModel]="getEmergencyCategoriesText()"
+            (ngModelChange)="updateEmergencyCategories($event)"
+            placeholder="Gündem&#10;Son Dakika&#10;Afet"
+          ></textarea>
+        </section>
+
+        <!-- Score -->
+        <section class="settings-section">
+          <h3>📊 Detection Threshold</h3>
+          <div class="form-row">
+            <label>Minimum Keyword Score</label>
+            <div class="input-with-hint">
+              <input 
+                type="number" 
+                min="1" 
+                max="10"
+                [ngModel]="policy()!.emergencyRules.minKeywordScore"
+                (ngModelChange)="updateMinKeywordScore($event)"
+              >
+              <span class="hint">1-10 (lower = more sensitive)</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Timezone -->
+        <section class="settings-section">
+          <h3>🌍 Timezone</h3>
+          <div class="form-row">
+            <label>Schedule Timezone</label>
+            <select 
+              [ngModel]="policy()!.timeZoneId"
+              (ngModelChange)="updateTimeZone($event)"
+            >
+              <option value="Europe/Istanbul">Europe/Istanbul (TR)</option>
+              <option value="UTC">UTC</option>
+              <option value="Europe/London">Europe/London</option>
+              <option value="America/New_York">America/New_York</option>
+            </select>
+          </div>
+        </section>
+      </div>
+    }
+  }
+</div>
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}
+

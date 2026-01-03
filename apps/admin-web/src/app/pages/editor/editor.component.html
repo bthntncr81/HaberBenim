@@ -335,6 +335,174 @@
                   <span class="hint">Max 2200 karakter. Instagram paylaşımı için görsel zorunludur.</span>
                 </div>
               }
+              
+              <!-- Template Application Section -->
+              <div class="template-section">
+                <h4>🎨 Apply Template</h4>
+                <p class="template-hint">Apply source-assigned templates to generate captions for each platform</p>
+                
+                <div class="template-buttons">
+                  @for (platform of templatePlatforms; track platform) {
+                    <button 
+                      class="btn-apply-template"
+                      [class.applied]="hasTemplateResult(platform)"
+                      [class.loading]="isApplyingTemplate() === platform"
+                      (click)="applyTemplate(platform)"
+                      [disabled]="isApplyingTemplate()"
+                    >
+                      @if (isApplyingTemplate() === platform) {
+                        <span class="spinner-xs"></span>
+                      } @else {
+                        <span class="platform-icon">{{ getPlatformIcon(platform) }}</span>
+                      }
+                      <span class="platform-name">{{ platform }}</span>
+                      @if (hasTemplateResult(platform)) {
+                        <span class="applied-badge">✓</span>
+                      }
+                    </button>
+                  }
+                </div>
+                
+                <!-- Applied Template Results -->
+                @for (platform of templatePlatforms; track platform) {
+                  @if (getTemplateResult(platform); as result) {
+                    @if (result.success && result.selectedTemplateId) {
+                      <div class="template-result">
+                        <div class="result-header">
+                          <span class="result-platform">{{ getPlatformIcon(platform) }} {{ platform }}</span>
+                          <span class="result-template">{{ result.selectedTemplateName }}</span>
+                          <span class="result-format">{{ result.format }}</span>
+                        </div>
+                        @if (result.resolvedTextSpec) {
+                          <div class="result-preview">
+                            @if (platform === 'Instagram' && result.resolvedTextSpec.instagramCaption) {
+                              <div class="preview-text">{{ result.resolvedTextSpec.instagramCaption }}</div>
+                            }
+                            @if (platform === 'X' && result.resolvedTextSpec.xText) {
+                              <div class="preview-text">{{ result.resolvedTextSpec.xText }}</div>
+                            }
+                            @if (platform === 'TikTok' && result.resolvedTextSpec.tiktokHook) {
+                              <div class="preview-text">{{ result.resolvedTextSpec.tiktokHook }}</div>
+                            }
+                            @if (platform === 'YouTube') {
+                              @if (result.resolvedTextSpec.youtubeTitle) {
+                                <div class="preview-label">Title:</div>
+                                <div class="preview-text">{{ result.resolvedTextSpec.youtubeTitle }}</div>
+                              }
+                              @if (result.resolvedTextSpec.youtubeDescription) {
+                                <div class="preview-label">Description:</div>
+                                <div class="preview-text small">{{ result.resolvedTextSpec.youtubeDescription }}</div>
+                              }
+                            }
+                          </div>
+                        }
+                        @if (result.previewVisualUrl) {
+                          <div class="result-visual">
+                            <img [src]="result.previewVisualUrl" alt="Template preview" loading="lazy">
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+                }
+              </div>
+              
+              <!-- Render Final Section -->
+              <div class="render-section">
+                <h4>🖼️ Render Final</h4>
+                <p class="render-hint">Generate final render images for publishing</p>
+                
+                <div class="render-buttons">
+                  @for (platform of templatePlatforms; track platform) {
+                    <button 
+                      class="btn-render"
+                      [class.rendering]="isRenderingFinal() === platform"
+                      [class.completed]="getRenderJob(platform)?.status === 'Completed'"
+                      (click)="renderFinal(platform)"
+                      [disabled]="isRenderingFinal()"
+                    >
+                      @if (isRenderingFinal() === platform) {
+                        <span class="spinner-xs"></span>
+                      } @else {
+                        <span class="platform-icon">{{ getPlatformIcon(platform) }}</span>
+                      }
+                      <span class="platform-name">{{ platform }}</span>
+                      @if (getRenderJob(platform); as job) {
+                        @if (job.outputType === 'Video') {
+                          <span class="type-badge video">🎬</span>
+                        }
+                        @if (job.status === 'Rendering' && job.progress > 0) {
+                          <span class="render-status rendering">{{ job.progress }}%</span>
+                        } @else {
+                          <span class="render-status" [class]="getRenderStatusClass(job.status)">
+                            {{ getRenderStatusLabel(job.status) }}
+                          </span>
+                        }
+                      }
+                    </button>
+                  }
+                  <button 
+                    class="btn-render-all"
+                    (click)="renderAllPlatforms()"
+                    [disabled]="isRenderingFinal()"
+                  >
+                    @if (isRenderingFinal() === 'all') {
+                      <span class="spinner-xs"></span>
+                    }
+                    🚀 Render All
+                  </button>
+                </div>
+                
+                <!-- Render Results -->
+                @for (platform of templatePlatforms; track platform) {
+                  @if (getRenderJob(platform); as job) {
+                    @if (job.status === 'Completed' && job.outputUrl) {
+                      <div class="render-result" [class.video-render]="job.outputType === 'Video'">
+                        <div class="render-result-header">
+                          <span class="result-platform">{{ getPlatformIcon(platform) }} {{ platform }}</span>
+                          <span class="result-template">{{ job.templateName }}</span>
+                          <span class="result-format">{{ job.format }}</span>
+                          @if (job.outputType === 'Video') {
+                            <span class="result-type video">🎬 Video</span>
+                          }
+                        </div>
+                        <div class="render-result-preview">
+                          @if (job.outputType === 'Video') {
+                            <video controls playsinline preload="metadata" class="result-video">
+                              <source [src]="job.outputUrl" type="video/mp4">
+                              Your browser does not support the video tag.
+                            </video>
+                          } @else {
+                            <img [src]="job.outputUrl" [alt]="job.templateName" loading="lazy">
+                          }
+                        </div>
+                        @if (job.resolvedTextSpecJson) {
+                          @if (parseResolvedText(job.resolvedTextSpecJson); as texts) {
+                            @if (platform === 'Instagram' && texts['instagramCaption']) {
+                              <div class="render-result-text">
+                                <label>Instagram Caption</label>
+                                <pre>{{ texts['instagramCaption'] }}</pre>
+                              </div>
+                            }
+                            @if (platform === 'X' && texts['xText']) {
+                              <div class="render-result-text">
+                                <label>X/Twitter Text</label>
+                                <pre>{{ texts['xText'] }}</pre>
+                              </div>
+                            }
+                          }
+                        }
+                      </div>
+                    }
+                    @if (job.status === 'Failed' && job.error) {
+                      <div class="render-error-block">
+                        <span class="error-icon">⚠️</span>
+                        <span>{{ platform }}: {{ job.error }}</span>
+                      </div>
+                    }
+                  }
+                }
+              </div>
 
               <div class="form-row">
                 <div class="form-group">

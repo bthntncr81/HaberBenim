@@ -7,6 +7,8 @@ import { EditorialMediaApiService } from '../../services/editorial-media-api.ser
 import { PublishApiService } from '../../services/publish-api.service';
 import { BreakingApiService } from '../../services/breaking-api.service';
 import { AiVideoApiService, AiVideoJob, AiVideoGenerateRequest } from '../../services/ai-video-api.service';
+import { SourceTemplateApiService, ApplyTemplateResponse, ResolvedTextSpec } from '../../services/source-template-api.service';
+import { ReadyQueueApiService, RenderJobDto } from '../../services/ready-queue-api.service';
 import { AuthService } from '../../services/auth.service';
 import { EditorialItem, SaveDraftRequest, CorrectionRequest } from '../../shared/editorial.models';
 import { ChannelPublishLog } from '../../shared/publish.models';
@@ -29,10 +31,25 @@ export class EditorComponent implements OnInit, OnDestroy {
   private publishApi = inject(PublishApiService);
   private breakingApi = inject(BreakingApiService);
   private aiVideoApi = inject(AiVideoApiService);
+  private sourceTemplateApi = inject(SourceTemplateApiService);
+  private readyQueueApi = inject(ReadyQueueApiService);
   private authService = inject(AuthService);
 
   // Data
   item = signal<EditorialItem | null>(null);
+  
+  // Template Application
+  templatePlatforms = ['Instagram', 'X', 'TikTok', 'YouTube'];
+  isApplyingTemplate = signal<string | null>(null); // platform being applied
+  templateResults = signal<Record<string, ApplyTemplateResponse>>({});
+  showTemplateResultModal = signal(false);
+  activeTemplateResult = signal<{ platform: string; result: ApplyTemplateResponse } | null>(null);
+  
+  // Render Final
+  renderJobs = signal<RenderJobDto[]>([]);
+  isRenderingFinal = signal<string | null>(null); // platform being rendered
+  isLoadingRenderJobs = signal(false);
+  renderPollingInterval: any = null;
   contentId = signal<string>('');
   publishLogs = signal<ChannelPublishLog[]>([]);
   
@@ -204,11 +221,13 @@ export class EditorComponent implements OnInit, OnDestroy {
       this.loadItem(id);
       this.loadMedia(id);
       this.loadVideoStatus(id);
+      this.loadRenderJobs(id);
     }
   }
 
   ngOnDestroy(): void {
     this.stopVideoPolling();
+    this.stopRenderPolling();
   }
 
   loadItem(id: string): void {
@@ -943,5 +962,204 @@ export class EditorComponent implements OnInit, OnDestroy {
     this.toastType.set(type);
     this.showToast.set(true);
     setTimeout(() => this.showToast.set(false), 4000);
+  }
+
+  // Template Application Methods
+  applyTemplate(platform: string): void {
+    if (this.isApplyingTemplate()) return;
+
+    this.isApplyingTemplate.set(platform);
+    this.sourceTemplateApi.applyTemplate(this.contentId(), { platform }).subscribe({
+      next: (response) => {
+        this.isApplyingTemplate.set(null);
+        
+        // Store result
+        const results = { ...this.templateResults() };
+        results[platform] = response;
+        this.templateResults.set(results);
+
+        if (response.success && response.selectedTemplateId) {
+          this.showToastMessage(
+            `Template "${response.selectedTemplateName}" applied for ${platform}`,
+            'success'
+          );
+          // Show result modal
+          this.activeTemplateResult.set({ platform, result: response });
+          this.showTemplateResultModal.set(true);
+        } else if (response.skipReason) {
+          this.showToastMessage(
+            `Skipped for ${platform}: ${response.skipReason}`,
+            'error'
+          );
+        } else {
+          this.showToastMessage(
+            response.error || `No template matched for ${platform}`,
+            'error'
+          );
+        }
+      },
+      error: (err) => {
+        this.isApplyingTemplate.set(null);
+        this.showToastMessage(
+          err.error?.error || `Failed to apply template for ${platform}`,
+          'error'
+        );
+      }
+    });
+  }
+
+  closeTemplateResultModal(): void {
+    this.showTemplateResultModal.set(false);
+    this.activeTemplateResult.set(null);
+  }
+
+  getTemplateResult(platform: string): ApplyTemplateResponse | null {
+    return this.templateResults()[platform] || null;
+  }
+
+  hasTemplateResult(platform: string): boolean {
+    const result = this.templateResults()[platform];
+    return result?.success === true && !!result.selectedTemplateId;
+  }
+
+  getPlatformIcon(platform: string): string {
+    switch (platform) {
+      case 'Instagram': return '📷';
+      case 'X': return '𝕏';
+      case 'TikTok': return '🎵';
+      case 'YouTube': return '▶️';
+      default: return '📄';
+    }
+  }
+
+  // Render Final Methods
+  loadRenderJobs(contentId: string): void {
+    this.isLoadingRenderJobs.set(true);
+    this.readyQueueApi.getItem(contentId).subscribe({
+      next: (item) => {
+        this.renderJobs.set(item.renderJobs || []);
+        this.isLoadingRenderJobs.set(false);
+        
+        // Start polling if any jobs are in progress
+        if (item.renderJobs?.some(j => j.status === 'Queued' || j.status === 'Rendering')) {
+          this.startRenderPolling();
+        }
+      },
+      error: () => {
+        this.renderJobs.set([]);
+        this.isLoadingRenderJobs.set(false);
+      }
+    });
+  }
+
+  startRenderPolling(): void {
+    if (this.renderPollingInterval) return;
+    
+    this.renderPollingInterval = setInterval(() => {
+      const jobs = this.renderJobs();
+      if (!jobs.some(j => j.status === 'Queued' || j.status === 'Rendering')) {
+        this.stopRenderPolling();
+        return;
+      }
+
+      this.readyQueueApi.getItem(this.contentId()).subscribe({
+        next: (item) => {
+          this.renderJobs.set(item.renderJobs || []);
+          
+          // Check if any job just completed
+          const completed = item.renderJobs?.find(j => j.status === 'Completed');
+          if (completed && !jobs.find(j => j.id === completed.id && j.status === 'Completed')) {
+            this.showToastMessage(`Render completed for ${completed.platform}`, 'success');
+          }
+        },
+        error: () => {}
+      });
+    }, 5000);
+  }
+
+  stopRenderPolling(): void {
+    if (this.renderPollingInterval) {
+      clearInterval(this.renderPollingInterval);
+      this.renderPollingInterval = null;
+    }
+  }
+
+  renderFinal(platform: string): void {
+    if (this.isRenderingFinal()) return;
+
+    this.isRenderingFinal.set(platform);
+    this.readyQueueApi.createRenderJobs(this.contentId(), {
+      platforms: [platform],
+      force: false
+    }).subscribe({
+      next: (response) => {
+        this.isRenderingFinal.set(null);
+        if (response.success && response.createdJobs.length > 0) {
+          this.showToastMessage(`Render job created for ${platform}`, 'success');
+          this.loadRenderJobs(this.contentId());
+        } else if (response.createdJobs.length === 0) {
+          this.showToastMessage(response.message || 'No template found or already rendered', 'error');
+        }
+      },
+      error: (err) => {
+        this.isRenderingFinal.set(null);
+        this.showToastMessage(err.error?.error || `Failed to create render job for ${platform}`, 'error');
+      }
+    });
+  }
+
+  renderAllPlatforms(): void {
+    if (this.isRenderingFinal()) return;
+
+    this.isRenderingFinal.set('all');
+    this.readyQueueApi.createRenderJobs(this.contentId(), {
+      platforms: this.templatePlatforms,
+      force: false
+    }).subscribe({
+      next: (response) => {
+        this.isRenderingFinal.set(null);
+        if (response.success) {
+          this.showToastMessage(response.message, 'success');
+          this.loadRenderJobs(this.contentId());
+        }
+      },
+      error: (err) => {
+        this.isRenderingFinal.set(null);
+        this.showToastMessage(err.error?.error || 'Failed to create render jobs', 'error');
+      }
+    });
+  }
+
+  getRenderJob(platform: string): RenderJobDto | null {
+    return this.renderJobs().find(j => j.platform === platform) || null;
+  }
+
+  getRenderStatusLabel(status: string): string {
+    switch (status) {
+      case 'Queued': return 'In Queue';
+      case 'Rendering': return 'Rendering...';
+      case 'Completed': return 'Ready';
+      case 'Failed': return 'Failed';
+      default: return status;
+    }
+  }
+
+  getRenderStatusClass(status: string): string {
+    switch (status) {
+      case 'Queued': return 'status-queued';
+      case 'Rendering': return 'status-rendering';
+      case 'Completed': return 'status-completed';
+      case 'Failed': return 'status-failed';
+      default: return '';
+    }
+  }
+
+  parseResolvedText(json: string | null): Record<string, string> {
+    if (!json) return {};
+    try {
+      return JSON.parse(json);
+    } catch {
+      return {};
+    }
   }
 }

@@ -9,12 +9,12 @@ public class AdminAlert
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     
     /// <summary>
-    /// Type: IngestionDown, FailoverActivated, ComplianceViolation, Retract
+    /// Type: IngestionDown, FailoverActivated, ComplianceViolation, Retract, FfmpegMissing
     /// </summary>
     public string Type { get; set; } = string.Empty;
     
     /// <summary>
-    /// Severity: Info, Warn, Critical
+    /// Severity: Info, Warn, Warning, Critical
     /// </summary>
     public string Severity { get; set; } = AlertSeverities.Info;
     
@@ -25,6 +25,12 @@ public class AdminAlert
     public DateTime? AcknowledgedAtUtc { get; set; }
     public Guid? AcknowledgedByUserId { get; set; }
     public User? AcknowledgedByUser { get; set; }
+    
+    /// <summary>
+    /// Auto-resolved when condition clears
+    /// </summary>
+    public bool IsResolved { get; set; } = false;
+    public DateTime? ResolvedAtUtc { get; set; }
     
     /// <summary>
     /// JSON metadata (contentId, sourceId, etc.)
@@ -38,12 +44,14 @@ public static class AlertTypes
     public const string FailoverActivated = "FailoverActivated";
     public const string ComplianceViolation = "ComplianceViolation";
     public const string Retract = "Retract";
+    public const string FfmpegMissing = "FfmpegMissing";
 }
 
 public static class AlertSeverities
 {
     public const string Info = "Info";
     public const string Warn = "Warn";
+    public const string Warning = "Warning";
     public const string Critical = "Critical";
 }
 

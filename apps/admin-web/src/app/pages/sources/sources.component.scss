@@ -823,3 +823,209 @@
   }
 }
 
+// Template Assignments Section
+.templates-section {
+  margin-top: 24px;
+  border-left-color: var(--accent-secondary) !important;
+}
+
+.platform-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.platform-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+
+  &.active {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+  }
+
+  &:hover:not(.active) {
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+  }
+
+  .count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+}
+
+.assignments-list {
+  min-height: 60px;
+  margin-bottom: 16px;
+}
+
+.loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.no-templates {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  border: 1px dashed var(--border-color);
+}
+
+.assignment-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: opacity 0.2s;
+
+  &.inactive {
+    opacity: 0.5;
+  }
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.assignment-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+
+  .template-name {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .template-format {
+    padding: 2px 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+
+  .template-priority {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}
+
+.assignment-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .priority-input {
+    width: 60px;
+    padding: 6px 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-primary);
+    text-align: center;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+  }
+}
+
+.add-template-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+
+  .template-select {
+    flex: 1;
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+
+  .priority-input {
+    width: 80px;
+    padding: 10px 8px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-primary);
+    text-align: center;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+  }
+
+  .btn-add-assignment {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 16px;
+    background: var(--accent-secondary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+

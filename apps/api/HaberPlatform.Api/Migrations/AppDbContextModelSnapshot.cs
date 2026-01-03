@@ -42,6 +42,9 @@ namespace HaberPlatform.Api.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsResolved")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -49,6 +52,9 @@ namespace HaberPlatform.Api.Migrations
 
                     b.Property<string>("MetaJson")
                         .HasColumnType("text");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Severity")
                         .IsRequired()
@@ -399,7 +405,8 @@ namespace HaberPlatform.Api.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("ArticleFetchError")
-                        .HasColumnType("text");
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("BodyText")
                         .IsRequired()
@@ -480,7 +487,9 @@ namespace HaberPlatform.Api.Migrations
                         .HasDefaultValue(false);
 
                     b.Property<bool>("IsTruncated")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Language")
                         .HasMaxLength(10)
@@ -733,6 +742,63 @@ namespace HaberPlatform.Api.Migrations
                     b.ToTable("DailyReportRuns");
                 });
 
+            modelBuilder.Entity("HaberPlatform.Api.Entities.EmergencyQueueItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ContentItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("DetectedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DetectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("MatchedKeywordsCsv")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("OverrideSchedule")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ProcessedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TargetPlatformsCsv")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentItemId");
+
+                    b.HasIndex("ProcessedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Status", "Priority");
+
+                    b.ToTable("EmergencyQueueItems");
+                });
+
             modelBuilder.Entity("HaberPlatform.Api.Entities.InstagramConnection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -824,6 +890,9 @@ namespace HaberPlatform.Api.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("integer");
 
                     b.Property<string>("GenerationPrompt")
                         .HasMaxLength(2000)
@@ -919,6 +988,9 @@ namespace HaberPlatform.Api.Migrations
                     b.Property<int>("AttemptCount")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("ContentItemId")
                         .HasColumnType("uuid");
 
@@ -927,6 +999,9 @@ namespace HaberPlatform.Api.Migrations
 
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsEmergency")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime?>("LastAttemptAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -941,10 +1016,16 @@ namespace HaberPlatform.Api.Migrations
                     b.Property<DateTime>("ScheduledAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("SilencePush")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TargetPlatformsCsv")
+                        .HasColumnType("text");
 
                     b.Property<int>("VersionNo")
                         .ValueGeneratedOnAdd()
@@ -962,6 +1043,91 @@ namespace HaberPlatform.Api.Migrations
                     b.HasIndex("Status", "ScheduledAtUtc");
 
                     b.ToTable("PublishJobs");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.PublishTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(100);
+
+                    b.Property<string>("RuleJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Format");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("Platform");
+
+                    b.HasIndex("IsActive", "Priority");
+
+                    b.HasIndex("Platform", "Format", "IsActive");
+
+                    b.ToTable("PublishTemplates");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.PublishTemplateSpec", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TextSpecJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VisualSpecJson")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateId")
+                        .IsUnique();
+
+                    b.ToTable("PublishTemplateSpecs");
                 });
 
             modelBuilder.Entity("HaberPlatform.Api.Entities.PublishedContent", b =>
@@ -1041,6 +1207,87 @@ namespace HaberPlatform.Api.Migrations
                     b.HasIndex("Slug");
 
                     b.ToTable("PublishedContents");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.RenderJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ContentItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("OutputMediaAssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OutputType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Image");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Progress")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("ResolvedTextSpecJson")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("SourceVideoAssetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Queued");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentItemId");
+
+                    b.HasIndex("OutputMediaAssetId");
+
+                    b.HasIndex("OutputType");
+
+                    b.HasIndex("SourceVideoAssetId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TemplateId");
+
+                    b.HasIndex("ContentItemId", "Platform", "Status");
+
+                    b.ToTable("RenderJobs");
                 });
 
             modelBuilder.Entity("HaberPlatform.Api.Entities.Role", b =>
@@ -1153,10 +1400,15 @@ namespace HaberPlatform.Api.Migrations
 
                     b.Property<string>("FullTextExtractMode")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Auto");
 
                     b.Property<bool>("FullTextFetchEnabled")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Group")
                         .HasMaxLength(100)
@@ -1267,6 +1519,56 @@ namespace HaberPlatform.Api.Migrations
                     b.ToTable("SourceIngestionHealths");
                 });
 
+            modelBuilder.Entity("HaberPlatform.Api.Entities.SourceTemplateAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Auto");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("PriorityOverride")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateId");
+
+                    b.HasIndex("SourceId", "Platform", "IsActive");
+
+                    b.HasIndex("SourceId", "Platform", "TemplateId")
+                        .IsUnique();
+
+                    b.ToTable("SourceTemplateAssignments");
+                });
+
             modelBuilder.Entity("HaberPlatform.Api.Entities.SystemSetting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1291,6 +1593,44 @@ namespace HaberPlatform.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("SystemSettings");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.TemplateAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("TemplateAssets");
                 });
 
             modelBuilder.Entity("HaberPlatform.Api.Entities.User", b =>
@@ -1629,6 +1969,24 @@ namespace HaberPlatform.Api.Migrations
                     b.Navigation("CreatedByUser");
                 });
 
+            modelBuilder.Entity("HaberPlatform.Api.Entities.EmergencyQueueItem", b =>
+                {
+                    b.HasOne("HaberPlatform.Api.Entities.ContentItem", "ContentItem")
+                        .WithMany()
+                        .HasForeignKey("ContentItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HaberPlatform.Api.Entities.User", "ProcessedByUser")
+                        .WithMany()
+                        .HasForeignKey("ProcessedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ContentItem");
+
+                    b.Navigation("ProcessedByUser");
+                });
+
             modelBuilder.Entity("HaberPlatform.Api.Entities.PublishJob", b =>
                 {
                     b.HasOne("HaberPlatform.Api.Entities.ContentItem", "ContentItem")
@@ -1647,6 +2005,17 @@ namespace HaberPlatform.Api.Migrations
                     b.Navigation("CreatedByUser");
                 });
 
+            modelBuilder.Entity("HaberPlatform.Api.Entities.PublishTemplateSpec", b =>
+                {
+                    b.HasOne("HaberPlatform.Api.Entities.PublishTemplate", "Template")
+                        .WithOne("Spec")
+                        .HasForeignKey("HaberPlatform.Api.Entities.PublishTemplateSpec", "TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Template");
+                });
+
             modelBuilder.Entity("HaberPlatform.Api.Entities.PublishedContent", b =>
                 {
                     b.HasOne("HaberPlatform.Api.Entities.ContentItem", "ContentItem")
@@ -1656,6 +2025,39 @@ namespace HaberPlatform.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("ContentItem");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.RenderJob", b =>
+                {
+                    b.HasOne("HaberPlatform.Api.Entities.ContentItem", "ContentItem")
+                        .WithMany()
+                        .HasForeignKey("ContentItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HaberPlatform.Api.Entities.MediaAsset", "OutputMediaAsset")
+                        .WithMany()
+                        .HasForeignKey("OutputMediaAssetId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HaberPlatform.Api.Entities.MediaAsset", "SourceVideoAsset")
+                        .WithMany()
+                        .HasForeignKey("SourceVideoAssetId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HaberPlatform.Api.Entities.PublishTemplate", "Template")
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ContentItem");
+
+                    b.Navigation("OutputMediaAsset");
+
+                    b.Navigation("SourceVideoAsset");
+
+                    b.Navigation("Template");
                 });
 
             modelBuilder.Entity("HaberPlatform.Api.Entities.Rule", b =>
@@ -1677,6 +2079,25 @@ namespace HaberPlatform.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Source");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.SourceTemplateAssignment", b =>
+                {
+                    b.HasOne("HaberPlatform.Api.Entities.Source", "Source")
+                        .WithMany()
+                        .HasForeignKey("SourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HaberPlatform.Api.Entities.PublishTemplate", "Template")
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Source");
+
+                    b.Navigation("Template");
                 });
 
             modelBuilder.Entity("HaberPlatform.Api.Entities.UserRole", b =>
@@ -1731,6 +2152,11 @@ namespace HaberPlatform.Api.Migrations
             modelBuilder.Entity("HaberPlatform.Api.Entities.MediaAsset", b =>
                 {
                     b.Navigation("ContentLinks");
+                });
+
+            modelBuilder.Entity("HaberPlatform.Api.Entities.PublishTemplate", b =>
+                {
+                    b.Navigation("Spec");
                 });
 
             modelBuilder.Entity("HaberPlatform.Api.Entities.Role", b =>

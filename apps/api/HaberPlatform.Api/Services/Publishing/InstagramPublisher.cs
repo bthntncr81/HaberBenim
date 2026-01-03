@@ -35,14 +35,55 @@ public class InstagramPublisher : IChannelPublisher
     {
         try
         {
-            // Build caption
-            var caption = BuildCaption(item, draft);
+            using var scope = _serviceProvider.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            
+            // Check for a completed RenderJob with template
+            var renderJob = await db.RenderJobs
+                .Include(r => r.OutputMediaAsset)
+                .Where(r => r.ContentItemId == item.Id && 
+                            r.Platform == "Instagram" && 
+                            r.Status == RenderJobStatus.Completed &&
+                            r.OutputMediaAssetId != null)
+                .OrderByDescending(r => r.CreatedAtUtc)
+                .FirstOrDefaultAsync(ct);
+
+            string caption;
+            string? templateImagePath = null;
+            
+            if (renderJob != null && renderJob.OutputMediaAsset != null)
+            {
+                // Use template rendered image
+                templateImagePath = renderJob.OutputMediaAsset.StoragePath;
+                _logger.LogInformation("Using template render for Instagram post {ContentId}: {TemplateId}, Image: {ImagePath}", 
+                    item.Id, renderJob.TemplateId, templateImagePath);
+                
+                // Use template caption if available
+                if (!string.IsNullOrEmpty(renderJob.ResolvedTextSpecJson))
+                {
+                    var textSpec = JsonSerializer.Deserialize<TextSpec>(renderJob.ResolvedTextSpecJson);
+                    caption = TruncateCaption(textSpec?.InstagramCaption ?? BuildCaption(item, draft));
+                }
+                else
+                {
+                    // Template image but no text spec - use default caption
+                    caption = BuildCaption(item, draft);
+                }
+            }
+            else
+            {
+                // No template render - fall back to default
+                caption = BuildCaption(item, draft);
+                _logger.LogInformation("No template render found for Instagram post {ContentId}, using primary image", item.Id);
+            }
 
             var requestPayload = new
             {
                 contentItemId = item.Id,
                 caption,
-                captionLength = caption.Length
+                captionLength = caption.Length,
+                usedTemplate = renderJob != null,
+                templateId = renderJob?.TemplateId
             };
             var requestJson = JsonSerializer.Serialize(requestPayload);
 
@@ -62,12 +103,10 @@ public class InstagramPublisher : IChannelPublisher
                 return PublishResult.Succeeded(requestJson, JsonSerializer.Serialize(stubResponse));
             }
 
-            // Get services
-            using var scope = _serviceProvider.CreateScope();
+            // Get additional services (db already retrieved above)
             var oauthService = scope.ServiceProvider.GetRequiredService<InstagramOAuthService>();
             var apiClient = scope.ServiceProvider.GetRequiredService<InstagramApiClient>();
             var alertService = scope.ServiceProvider.GetRequiredService<AlertService>();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var mediaOptions = scope.ServiceProvider.GetRequiredService<IOptions<MediaOptions>>().Value;
 
             // Get Instagram connection
@@ -109,8 +148,21 @@ public class InstagramPublisher : IChannelPublisher
                     requestJson);
             }
 
-            // Get primary image URL
-            var imageUrl = await GetPrimaryImageUrlAsync(item.Id, publicBaseUrl, db, mediaOptions, ct);
+            // Get image URL - prefer template rendered image, fallback to primary image
+            string? imageUrl = null;
+            
+            if (!string.IsNullOrEmpty(templateImagePath))
+            {
+                // Use template rendered image
+                imageUrl = $"{publicBaseUrl.TrimEnd('/')}/media/{templateImagePath}";
+                _logger.LogInformation("Using template image for Instagram: {ImageUrl}", imageUrl);
+            }
+            else
+            {
+                // Fallback to primary image
+                imageUrl = await GetPrimaryImageUrlAsync(item.Id, publicBaseUrl, db, mediaOptions, ct);
+            }
+            
             if (string.IsNullOrEmpty(imageUrl))
             {
                 _logger.LogWarning("No image available for Instagram post {ContentId}", item.Id);

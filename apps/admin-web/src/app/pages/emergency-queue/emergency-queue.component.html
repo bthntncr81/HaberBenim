@@ -1,0 +1,192 @@
+<div class="page">
+  <!-- Header -->
+  <header class="page-header">
+    <div class="header-content">
+      <h1>🚨 Emergency Queue</h1>
+      <p>High-priority breaking news content for immediate publishing</p>
+    </div>
+    @if (stats(); as s) {
+      <div class="stats-badges">
+        <div class="stat-badge pending">
+          <span class="stat-value">{{ s.pending }}</span>
+          <span class="stat-label">Pending</span>
+        </div>
+        <div class="stat-badge published">
+          <span class="stat-value">{{ s.publishedToday }}</span>
+          <span class="stat-label">Published Today</span>
+        </div>
+        <div class="stat-badge avg-priority">
+          <span class="stat-value">{{ s.averagePriority }}</span>
+          <span class="stat-label">Avg Priority</span>
+        </div>
+      </div>
+    }
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-card">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label>Status</label>
+        <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+          @for (status of statuses; track status) {
+            <option [value]="status">{{ status }}</option>
+          }
+        </select>
+      </div>
+      <div class="filter-info">
+        <span class="count">{{ total() }} items</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Loading emergency queue...</span>
+    </div>
+  } @else if (error()) {
+    <div class="error-state">
+      <span>{{ error() }}</span>
+      <button class="btn-retry" (click)="loadItems()">Retry</button>
+    </div>
+  } @else if (items().length === 0) {
+    <div class="empty-state">
+      <span class="empty-icon">✅</span>
+      <p>No emergency items</p>
+      <span class="empty-hint">Emergency content will appear here when detected</span>
+    </div>
+  } @else {
+    <div class="queue-list">
+      @for (item of items(); track item.id) {
+        <div class="queue-card" [class]="getPriorityClass(item.priority)">
+          <!-- Priority Badge -->
+          <div class="priority-indicator">
+            <span class="priority-value">{{ item.priority }}</span>
+            <span class="priority-label">{{ getPriorityLabel(item.priority) }}</span>
+          </div>
+
+          <!-- Content -->
+          <div class="card-content">
+            <div class="card-header">
+              <h3 (click)="goToEditor(item.contentItemId)" class="clickable">
+                {{ item.title }}
+              </h3>
+              <div class="card-meta">
+                <span class="source">{{ item.sourceName }}</span>
+                @if (item.category) {
+                  <span class="category">{{ item.category }}</span>
+                }
+                <span class="time">{{ formatRelativeTime(item.detectedAtUtc) }}</span>
+              </div>
+            </div>
+
+            <!-- Matched Keywords -->
+            @if (item.matchedKeywords.length > 0) {
+              <div class="keywords-row">
+                <span class="keywords-label">Matched:</span>
+                @for (keyword of item.matchedKeywords; track keyword) {
+                  <span class="keyword-tag">{{ keyword }}</span>
+                }
+              </div>
+            }
+
+            <!-- Status -->
+            <div class="status-row">
+              <span class="status-badge" [class]="getStatusClass(item.status)">
+                {{ item.status }}
+              </span>
+              @if (item.publishedAtUtc) {
+                <span class="published-at">
+                  Published: {{ formatDate(item.publishedAtUtc) }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="card-actions">
+            @if (item.status === 'Pending') {
+              <button 
+                class="btn-publish"
+                (click)="publish(item)"
+                [disabled]="publishingId() === item.id"
+              >
+                @if (publishingId() === item.id) {
+                  <span class="spinner-sm"></span>
+                } @else {
+                  🚀
+                }
+                Publish Now
+              </button>
+              <button 
+                class="btn-cancel"
+                (click)="cancel(item)"
+                [disabled]="cancellingId() === item.id"
+              >
+                @if (cancellingId() === item.id) {
+                  <span class="spinner-sm"></span>
+                } @else {
+                  ✕
+                }
+                Cancel
+              </button>
+            }
+            <button 
+              class="btn-edit"
+              (click)="goToEditor(item.contentItemId)"
+            >
+              ✏️ Edit
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <div class="pagination">
+      <button 
+        class="btn-page" 
+        [disabled]="page() <= 1"
+        (click)="onPageChange(page() - 1)"
+      >
+        ← Previous
+      </button>
+      
+      <div class="page-numbers">
+        @for (pageNum of getPageNumbers(); track pageNum) {
+          @if (pageNum === -1) {
+            <span class="ellipsis">...</span>
+          } @else {
+            <button 
+              class="btn-page-num" 
+              [class.active]="pageNum === page()"
+              (click)="onPageChange(pageNum)"
+            >
+              {{ pageNum }}
+            </button>
+          }
+        }
+      </div>
+      
+      <button 
+        class="btn-page" 
+        [disabled]="page() >= totalPages"
+        (click)="onPageChange(page() + 1)"
+      >
+        Next →
+      </button>
+    </div>
+  }
+</div>
+
+<!-- Toast -->
+@if (showToast()) {
+  <div class="toast" [class]="toastType()">
+    {{ toastMessage() }}
+  </div>
+}
+

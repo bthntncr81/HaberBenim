@@ -1,0 +1,197 @@
+<div class="templates-page">
+  <header class="page-header">
+    <div class="header-content">
+      <h1>🎨 Template Playground</h1>
+      <p class="subtitle">Platform şablonlarını tasarlayın ve yönetin</p>
+    </div>
+    <button class="btn-primary" (click)="openCreateModal()">
+      + Yeni Şablon
+    </button>
+  </header>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <div class="filter-group">
+      <label>Platform</label>
+      <select [ngModel]="filterPlatform()" (ngModelChange)="filterPlatform.set($event); applyFilters()">
+        <option value="">Tümü</option>
+        @for (p of platforms(); track p) {
+          <option [value]="p">{{ getPlatformIcon(p) }} {{ p }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label>Format</label>
+      <select [ngModel]="filterFormat()" (ngModelChange)="filterFormat.set($event); applyFilters()">
+        <option value="">Tümü</option>
+        @for (f of formats(); track f) {
+          <option [value]="f">{{ f }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label>Durum</label>
+      <select [ngModel]="filterActive()" (ngModelChange)="filterActive.set($event); applyFilters()">
+        <option value="">Tümü</option>
+        <option value="true">Aktif</option>
+        <option value="false">Pasif</option>
+      </select>
+    </div>
+
+    <div class="filter-group search">
+      <label>Ara</label>
+      <input type="text" 
+             [ngModel]="filterSearch()" 
+             (ngModelChange)="filterSearch.set($event)"
+             (keyup.enter)="applyFilters()"
+             placeholder="Şablon adı...">
+    </div>
+
+    <button class="btn-secondary" (click)="clearFilters()">Temizle</button>
+  </div>
+
+  <!-- Error -->
+  @if (error()) {
+    <div class="error-banner">
+      {{ error() }}
+      <button (click)="error.set(null)">×</button>
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Yükleniyor...</span>
+    </div>
+  }
+
+  <!-- Templates Grid -->
+  @if (!loading()) {
+    @if (templates().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon">🎨</div>
+        <h3>Henüz şablon yok</h3>
+        <p>İlk şablonunuzu oluşturmak için "Yeni Şablon" butonuna tıklayın.</p>
+        <button class="btn-primary" (click)="openCreateModal()">+ Yeni Şablon</button>
+      </div>
+    } @else {
+      <div class="templates-grid">
+        @for (template of templates(); track template.id) {
+          <div class="template-card" [class.inactive]="!template.isActive">
+            <div class="card-header">
+              <span class="platform-icon">{{ getPlatformIcon(template.platform) }}</span>
+              <span class="template-name">{{ template.name }}</span>
+              @if (!template.isActive) {
+                <span class="inactive-badge">Pasif</span>
+              }
+            </div>
+
+            <div class="card-body">
+              <div class="meta-row">
+                <span class="format-badge" [ngClass]="getFormatBadgeClass(template.format)">
+                  {{ template.format }}
+                </span>
+                <span class="priority">Öncelik: {{ template.priority }}</span>
+              </div>
+
+              <div class="spec-status">
+                @if (template.hasSpec) {
+                  <span class="has-spec">✓ Tasarım var</span>
+                } @else {
+                  <span class="no-spec">○ Tasarım yok</span>
+                }
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <button class="btn-action btn-designer" (click)="openDesigner(template)">
+                🎨 Designer
+              </button>
+              <button class="btn-action btn-toggle" (click)="toggleActive(template)">
+                {{ template.isActive ? '🔒 Pasifle' : '🔓 Aktifle' }}
+              </button>
+              <button class="btn-action btn-delete" (click)="deleteTemplate(template)">
+                🗑️
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Pagination info -->
+      <div class="pagination-info">
+        Toplam {{ total() }} şablon
+      </div>
+    }
+  }
+
+  <!-- Create Modal -->
+  @if (showCreateModal()) {
+    <div class="modal-overlay" (click)="closeCreateModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Yeni Şablon Oluştur</h2>
+          <button class="btn-close" (click)="closeCreateModal()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Şablon Adı *</label>
+            <input type="text" 
+                   [ngModel]="newTemplate().name"
+                   (ngModelChange)="updateNewTemplate('name', $event)"
+                   placeholder="örn: Instagram Haber Postu">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Platform</label>
+              <select [ngModel]="newTemplate().platform"
+                      (ngModelChange)="updateNewTemplate('platform', $event)">
+                @for (p of platforms(); track p) {
+                  <option [value]="p">{{ getPlatformIcon(p) }} {{ p }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Format</label>
+              <select [ngModel]="newTemplate().format"
+                      (ngModelChange)="updateNewTemplate('format', $event)">
+                @for (f of formats(); track f) {
+                  <option [value]="f">{{ f }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Öncelik</label>
+            <input type="number" 
+                   [ngModel]="newTemplate().priority"
+                   (ngModelChange)="updateNewTemplate('priority', $event)"
+                   min="1" max="1000">
+            <small>Düşük değer = yüksek öncelik</small>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" (click)="closeCreateModal()">İptal</button>
+          <button class="btn-primary" 
+                  (click)="createTemplate()" 
+                  [disabled]="creating() || !newTemplate().name.trim()">
+            @if (creating()) {
+              Oluşturuluyor...
+            } @else {
+              Oluştur & Tasarla
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
+

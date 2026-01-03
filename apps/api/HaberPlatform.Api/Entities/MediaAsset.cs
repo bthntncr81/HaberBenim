@@ -31,6 +31,9 @@ public class MediaAsset
     /// <summary>Image height in pixels</summary>
     public int Height { get; set; }
     
+    /// <summary>Video duration in seconds (for video assets)</summary>
+    public int? DurationSeconds { get; set; }
+    
     /// <summary>SHA256 hash of file contents for deduplication</summary>
     public string? Sha256 { get; set; }
     

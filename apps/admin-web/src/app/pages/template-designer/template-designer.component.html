@@ -1,0 +1,573 @@
+<div class="designer-page">
+  <!-- Header -->
+  <header class="designer-header">
+    <div class="header-left">
+      <button class="btn-back" (click)="goBack()">← Geri</button>
+      @if (template()) {
+        <h1>{{ template()!.name }}</h1>
+        <span class="platform-badge">{{ template()!.platform }} / {{ template()!.format }}</span>
+      }
+    </div>
+    <div class="header-right">
+      @if (saveSuccess()) {
+        <span class="save-success">✓ Kaydedildi</span>
+      }
+      <button class="btn-save" (click)="save()" [disabled]="saving()">
+        @if (saving()) {
+          Kaydediliyor...
+        } @else {
+          💾 Kaydet
+        }
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="error-banner">
+      {{ error() }}
+      <button (click)="error.set(null)">×</button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Yükleniyor...</span>
+    </div>
+  } @else {
+    <div class="designer-layout">
+      <!-- Left Panel: Layers -->
+      <aside class="left-panel">
+        <div class="panel-section">
+          <div class="section-header">
+            <h3>📚 Katmanlar</h3>
+          </div>
+          <div class="add-layer-buttons">
+            <button (click)="addLayer('text')" title="Metin Ekle">📝 Metin</button>
+            <button (click)="addLayer('rect')" title="Dikdörtgen Ekle">⬛ Kutu</button>
+            <button (click)="addLayer('image')" title="Görsel Ekle">🖼️ Görsel</button>
+            <button (click)="addLayer('asset')" title="Logo Ekle">🏷️ Logo</button>
+          </div>
+          
+          <div class="layers-list">
+            <!-- Reversed: top of list = front (last in array), bottom = back (first in array) -->
+            @for (layer of reversedLayers(); track layer.id) {
+              <div class="layer-item" 
+                   [class.selected]="selectedLayerId() === layer.id"
+                   (click)="selectLayer(layer.id)">
+                <span class="layer-icon">{{ getLayerIcon(layer.type) }}</span>
+                <span class="layer-name">{{ layer.id }}</span>
+                <div class="layer-actions">
+                  <button (click)="moveLayerDown(layer.id); $event.stopPropagation()" title="Arkaya Al">↓</button>
+                  <button (click)="moveLayerUp(layer.id); $event.stopPropagation()" title="Öne Getir">↑</button>
+                  <button class="btn-delete-layer" (click)="deleteLayer(layer.id); $event.stopPropagation()" title="Sil">×</button>
+                </div>
+              </div>
+            }
+            @if (visualSpec().layers.length === 0) {
+              <div class="empty-layers">
+                Henüz katman yok.<br>
+                Yukarıdan ekleyin.
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-header">
+            <h3>🎨 Canvas</h3>
+          </div>
+          
+          <!-- Canvas Size Presets -->
+          <div class="canvas-presets">
+            <label>Boyut Şablonları</label>
+            <div class="preset-buttons">
+              <button 
+                class="preset-btn" 
+                [class.active]="isPresetActive(1080, 1080)"
+                (click)="applyCanvasPreset(1080, 1080)"
+                title="Instagram Post / Kare"
+              >
+                📷 1:1
+              </button>
+              <button 
+                class="preset-btn" 
+                [class.active]="isPresetActive(1080, 1920)"
+                (click)="applyCanvasPreset(1080, 1920)"
+                title="Reels / Shorts / TikTok (Video)"
+              >
+                🎬 9:16
+              </button>
+              <button 
+                class="preset-btn" 
+                [class.active]="isPresetActive(1920, 1080)"
+                (click)="applyCanvasPreset(1920, 1080)"
+                title="YouTube / Landscape"
+              >
+                📺 16:9
+              </button>
+              <button 
+                class="preset-btn" 
+                [class.active]="isPresetActive(1080, 1350)"
+                (click)="applyCanvasPreset(1080, 1350)"
+                title="Instagram Portrait"
+              >
+                📱 4:5
+              </button>
+            </div>
+          </div>
+
+          <div class="property-grid">
+            <label>Genişlik</label>
+            <input type="number" [ngModel]="visualSpec().canvas.w" 
+                   (ngModelChange)="updateCanvasProperty('w', $event)">
+            
+            <label>Yükseklik</label>
+            <input type="number" [ngModel]="visualSpec().canvas.h" 
+                   (ngModelChange)="updateCanvasProperty('h', $event)">
+            
+            <label>Arka Plan</label>
+            <div class="color-input">
+              <input type="color" [ngModel]="visualSpec().canvas.bg" 
+                     (ngModelChange)="updateCanvasProperty('bg', $event)">
+              <input type="text" [ngModel]="visualSpec().canvas.bg" 
+                     (ngModelChange)="updateCanvasProperty('bg', $event)">
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center: Canvas -->
+      <main class="canvas-area">
+        <div class="canvas-wrapper">
+          <div #canvasContainer class="canvas-container"></div>
+        </div>
+      </main>
+
+      <!-- Right Panel: Properties -->
+      <aside class="right-panel">
+        @if (selectedLayer(); as layer) {
+          <div class="panel-section">
+            <div class="section-header">
+              <h3>{{ getLayerIcon(layer.type) }} {{ layer.type | titlecase }} Özellikleri</h3>
+            </div>
+            
+            <div class="property-grid">
+              <label>ID</label>
+              <input type="text" [value]="layer.id" disabled>
+              
+              <label>X</label>
+              <input type="number" [ngModel]="layer.x" 
+                     (ngModelChange)="updateLayerProperty('x', $event)">
+              
+              <label>Y</label>
+              <input type="number" [ngModel]="layer.y" 
+                     (ngModelChange)="updateLayerProperty('y', $event)">
+              
+              <label>Genişlik</label>
+              <input type="number" [ngModel]="layer.w" 
+                     (ngModelChange)="updateLayerProperty('w', $event)">
+              
+              <label>Yükseklik</label>
+              <input type="number" [ngModel]="layer.h" 
+                     (ngModelChange)="updateLayerProperty('h', $event)">
+            </div>
+
+            @if (layer.type === 'text') {
+              <div class="property-section">
+                <h4>Metin Ayarları</h4>
+                <div class="property-grid">
+                  <label>Bind</label>
+                  <textarea [ngModel]="layer.bind" 
+                            (ngModelChange)="updateLayerProperty('bind', $event)"
+                            rows="2"></textarea>
+                  
+                  <label>Font Size</label>
+                  <input type="number" [ngModel]="layer.fontSize" 
+                         (ngModelChange)="updateLayerProperty('fontSize', $event)">
+                  
+                  <label>Font Weight</label>
+                  <select [ngModel]="layer.fontWeight" 
+                          (ngModelChange)="updateLayerProperty('fontWeight', +$event)">
+                    <option [value]="400">Normal (400)</option>
+                    <option [value]="600">Semi Bold (600)</option>
+                    <option [value]="700">Bold (700)</option>
+                  </select>
+                  
+                  <label>Renk</label>
+                  <div class="color-input">
+                    <input type="color" [ngModel]="layer.color" 
+                           (ngModelChange)="updateLayerProperty('color', $event)">
+                    <input type="text" [ngModel]="layer.color" 
+                           (ngModelChange)="updateLayerProperty('color', $event)">
+                  </div>
+                  
+                  <label>Hizalama</label>
+                  <select [ngModel]="layer.align" 
+                          (ngModelChange)="updateLayerProperty('align', $event)">
+                    <option value="left">Sol</option>
+                    <option value="center">Orta</option>
+                    <option value="right">Sağ</option>
+                  </select>
+                  
+                  <label>Max Satır</label>
+                  <input type="number" [ngModel]="layer.lineClamp" 
+                         (ngModelChange)="updateLayerProperty('lineClamp', $event)"
+                         min="0" max="10">
+                </div>
+              </div>
+            }
+
+            @if (layer.type === 'rect') {
+              <div class="property-section">
+                <h4>Kutu Ayarları</h4>
+                <div class="property-grid">
+                  <label>Dolgu Tipi</label>
+                  <select [ngModel]="layer.fillGradient ? 'gradient' : 'solid'" 
+                          (ngModelChange)="toggleGradient($event === 'gradient')">
+                    <option value="solid">Düz Renk</option>
+                    <option value="gradient">Gradient</option>
+                  </select>
+                  
+                  @if (!layer.fillGradient) {
+                    <label>Renk</label>
+                    <div class="color-input">
+                      <input type="color" [ngModel]="layer.fill" 
+                             (ngModelChange)="updateLayerProperty('fill', $event)">
+                      <input type="text" [ngModel]="layer.fill" 
+                             (ngModelChange)="updateLayerProperty('fill', $event)">
+                    </div>
+                  } @else {
+                    <label>Renk 1</label>
+                    <div class="color-input">
+                      <input type="color" [ngModel]="layer.fillGradient?.colors?.[0] || '#000000'" 
+                             (ngModelChange)="updateGradientColor(0, $event)">
+                      <input type="text" [ngModel]="layer.fillGradient?.colors?.[0] || '#000000'" 
+                             (ngModelChange)="updateGradientColor(0, $event)">
+                    </div>
+                    
+                    <label>Renk 2</label>
+                    <div class="color-input">
+                      <input type="color" [ngModel]="layer.fillGradient?.colors?.[1] || '#ffffff'" 
+                             (ngModelChange)="updateGradientColor(1, $event)">
+                      <input type="text" [ngModel]="layer.fillGradient?.colors?.[1] || '#ffffff'" 
+                             (ngModelChange)="updateGradientColor(1, $event)">
+                    </div>
+                    
+                    <label>Açı</label>
+                    <input type="range" min="0" max="360" 
+                           [ngModel]="layer.fillGradient?.angle || 0" 
+                           (ngModelChange)="updateGradientAngle($event)">
+                  }
+                  
+                  <label>Opaklık</label>
+                  <div class="opacity-input">
+                    <input type="range" min="0" max="100" 
+                           [ngModel]="(layer.opacity ?? 1) * 100" 
+                           (ngModelChange)="updateLayerProperty('opacity', $event / 100)">
+                    <span>{{ ((layer.opacity ?? 1) * 100) | number:'1.0-0' }}%</span>
+                  </div>
+                  
+                  <label>Köşe Radius</label>
+                  <input type="number" [ngModel]="layer.radius" 
+                         (ngModelChange)="updateLayerProperty('radius', $event)"
+                         min="0">
+                </div>
+              </div>
+            }
+
+            @if (layer.type === 'image') {
+              <div class="property-section">
+                <h4>Görsel Ayarları</h4>
+                <div class="property-grid">
+                  <label>Kaynak</label>
+                  <select [ngModel]="layer.source" 
+                          (ngModelChange)="updateLayerProperty('source', $event)">
+                    <option value="primaryImage">Primary Image</option>
+                  </select>
+                  
+                  <label>Fit</label>
+                  <select [ngModel]="layer.fit" 
+                          (ngModelChange)="updateLayerProperty('fit', $event)">
+                    <option value="cover">Cover</option>
+                    <option value="contain">Contain</option>
+                  </select>
+                  
+                  <label>Köşe Radius</label>
+                  <input type="number" [ngModel]="layer.radius" 
+                         (ngModelChange)="updateLayerProperty('radius', $event)"
+                         min="0">
+                </div>
+              </div>
+            }
+
+            @if (layer.type === 'asset') {
+              <div class="property-section">
+                <h4>Logo Ayarları</h4>
+                <div class="property-grid">
+                  <label>Asset Key</label>
+                  <select [ngModel]="layer.assetKey" 
+                          (ngModelChange)="updateLayerProperty('assetKey', $event)">
+                    <option value="haberbenim_logo">Haber Benim Logo</option>
+                    @for (asset of uploadedAssets(); track asset.key) {
+                      <option [value]="asset.key">{{ asset.key }}</option>
+                    }
+                  </select>
+                  
+                  <label>Logo Yükle</label>
+                  <div class="upload-row">
+                    <input type="file" 
+                           #logoUpload 
+                           accept="image/*" 
+                           (change)="onLogoFileSelected($event)"
+                           style="display:none">
+                    <button class="btn-upload" (click)="logoUpload.click()" [disabled]="uploading()">
+                      @if (uploading()) {
+                        ⏳ Yükleniyor...
+                      } @else {
+                        📤 Logo Yükle
+                      }
+                    </button>
+                  </div>
+                  
+                  <label>Fit</label>
+                  <select [ngModel]="layer.fit" 
+                          (ngModelChange)="updateLayerProperty('fit', $event)">
+                    <option value="contain">Contain</option>
+                    <option value="cover">Cover</option>
+                  </select>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Variables Palette (for text layers) -->
+          @if (layer.type === 'text') {
+            <div class="panel-section">
+              <div class="section-header">
+                <h3>📎 Değişkenler</h3>
+              </div>
+              <div class="variables-palette">
+                @for (v of variables; track v.key) {
+                  <button class="var-chip" (click)="insertVariable(v.key)">
+                    {{ '{' + v.key + '}' }}
+                  </button>
+                }
+              </div>
+              <p class="hint">Tıklayarak bind alanına ekleyin</p>
+            </div>
+          }
+        } @else {
+          <div class="no-selection">
+            <p>Bir katman seçin<br>özelliklerini düzenlemek için</p>
+          </div>
+        }
+
+        <!-- Text Spec Section -->
+        <div class="panel-section text-spec-section">
+          <div class="section-header">
+            <h3>📝 Platform Metinleri</h3>
+          </div>
+          
+          <div class="text-spec-form">
+            <div class="form-group">
+              <label>📷 Instagram Caption</label>
+              <textarea [ngModel]="textSpec().instagramCaption" 
+                        (ngModelChange)="updateTextSpec('instagramCaption', $event)"
+                        rows="3"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label>𝕏 X (Tweet)</label>
+              <textarea [ngModel]="textSpec().xText" 
+                        (ngModelChange)="updateTextSpec('xText', $event)"
+                        rows="2"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label>🎵 TikTok Hook</label>
+              <textarea [ngModel]="textSpec().tiktokHook" 
+                        (ngModelChange)="updateTextSpec('tiktokHook', $event)"
+                        rows="2"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label>▶️ YouTube Title</label>
+              <input type="text" [ngModel]="textSpec().youtubeTitle" 
+                     (ngModelChange)="updateTextSpec('youtubeTitle', $event)">
+            </div>
+            
+            <div class="form-group">
+              <label>▶️ YouTube Description</label>
+              <textarea [ngModel]="textSpec().youtubeDescription" 
+                        (ngModelChange)="updateTextSpec('youtubeDescription', $event)"
+                        rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div class="panel-section preview-section">
+          <div class="section-header">
+            <h3>👁️ Önizleme</h3>
+          </div>
+          
+          <div class="preview-controls">
+            <select [ngModel]="selectedContentId()" 
+                    (ngModelChange)="selectedContentId.set($event)">
+              <option value="">İçerik Seçin...</option>
+              @for (content of recentContent(); track content.id) {
+                <option [value]="content.id">
+                  {{ content.title | slice:0:50 }}...
+                </option>
+              }
+            </select>
+            
+            <div class="preview-buttons">
+              <button class="btn-preview btn-instagram" 
+                      (click)="openPreviewDialog('Instagram')" 
+                      [disabled]="previewLoading() || !selectedContentId()">
+                📸 Instagram
+              </button>
+              <button class="btn-preview btn-youtube" 
+                      (click)="openPreviewDialog('YouTube')" 
+                      [disabled]="previewLoading() || !selectedContentId()">
+                ▶️ YouTube
+              </button>
+              <button class="btn-preview btn-tiktok" 
+                      (click)="openPreviewDialog('TikTok')" 
+                      [disabled]="previewLoading() || !selectedContentId()">
+                🎵 TikTok
+              </button>
+              <button class="btn-preview btn-x" 
+                      (click)="openPreviewDialog('X')" 
+                      [disabled]="previewLoading() || !selectedContentId()">
+                𝕏 X
+              </button>
+            </div>
+          </div>
+
+          @if (previewError()) {
+            <div class="preview-error">{{ previewError() }}</div>
+          }
+        </div>
+      </aside>
+    </div>
+  }
+</div>
+
+<!-- Preview Dialog -->
+@if (showPreviewDialog()) {
+  <div class="preview-dialog-overlay" (click)="closePreviewDialog()">
+    <div class="preview-dialog" (click)="$event.stopPropagation()">
+      <div class="dialog-header">
+        <h2>{{ previewPlatform() }} Önizleme</h2>
+        <button class="btn-close" (click)="closePreviewDialog()">×</button>
+      </div>
+
+      <div class="dialog-content">
+        @if (previewLoading()) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Önizleme oluşturuluyor...</p>
+          </div>
+        } @else if (previewError()) {
+          <div class="error-state">
+            <p>{{ previewError() }}</p>
+            <button class="btn-retry" (click)="generatePreview()">Tekrar Dene</button>
+          </div>
+        } @else if (previewUrl()) {
+          <!-- Platform-specific mockups -->
+          @switch (previewPlatform()) {
+            @case ('Instagram') {
+              <div class="mockup mockup-instagram">
+                <div class="phone-frame">
+                  <div class="phone-notch"></div>
+                  <div class="ig-header">
+                    <span class="ig-username">haberbenim</span>
+                    <span class="ig-dots">•••</span>
+                  </div>
+                  <div class="ig-image">
+                    <img [src]="previewUrl()" alt="Preview">
+                  </div>
+                  <div class="ig-actions">
+                    <span>♡</span>
+                    <span>💬</span>
+                    <span>➤</span>
+                    <span class="ig-save">🔖</span>
+                  </div>
+                  <div class="ig-likes">1,234 beğenme</div>
+                  <div class="ig-caption">
+                    <strong>haberbenim</strong> {{ getResolvedCaption('instagramCaption') | slice:0:100 }}...
+                  </div>
+                </div>
+              </div>
+            }
+            @case ('YouTube') {
+              <div class="mockup mockup-youtube">
+                <div class="yt-thumbnail">
+                  <img [src]="previewUrl()" alt="Preview">
+                  <div class="yt-duration">0:08</div>
+                </div>
+                <div class="yt-info">
+                  <div class="yt-avatar"></div>
+                  <div class="yt-meta">
+                    <div class="yt-title">{{ getResolvedCaption('youtubeTitle') | slice:0:60 }}</div>
+                    <div class="yt-channel">Haber Benim • 1K görüntüleme • 1 saat önce</div>
+                  </div>
+                </div>
+              </div>
+            }
+            @case ('TikTok') {
+              <div class="mockup mockup-tiktok">
+                <div class="phone-frame phone-frame-dark">
+                  <div class="phone-notch"></div>
+                  <div class="tt-video">
+                    <img [src]="previewUrl()" alt="Preview">
+                  </div>
+                  <div class="tt-sidebar">
+                    <div class="tt-avatar"></div>
+                    <div class="tt-action">♡<br>12K</div>
+                    <div class="tt-action">💬<br>234</div>
+                    <div class="tt-action">🔖<br>89</div>
+                    <div class="tt-action">➤</div>
+                  </div>
+                  <div class="tt-bottom">
+                    <div class="tt-username">&#64;haberbenim</div>
+                    <div class="tt-caption">{{ getResolvedCaption('tiktokHook') | slice:0:80 }}</div>
+                    <div class="tt-music">🎵 Orijinal ses - Haber Benim</div>
+                  </div>
+                </div>
+              </div>
+            }
+            @case ('X') {
+              <div class="mockup mockup-x">
+                <div class="x-tweet">
+                  <div class="x-avatar"></div>
+                  <div class="x-content">
+                    <div class="x-header">
+                      <span class="x-name">Haber Benim</span>
+                      <span class="x-handle">&#64;haberbenim</span>
+                      <span class="x-time">• 1sa</span>
+                    </div>
+                    <div class="x-text">{{ getResolvedCaption('xText') | slice:0:280 }}</div>
+                    <div class="x-image">
+                      <img [src]="previewUrl()" alt="Preview">
+                    </div>
+                    <div class="x-actions">
+                      <span>💬 24</span>
+                      <span>🔁 89</span>
+                      <span>♡ 432</span>
+                      <span>📊 12K</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+          }
+        }
+      </div>
+    </div>
+  </div>
+}
+
